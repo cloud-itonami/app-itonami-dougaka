@@ -1,0 +1,5 @@
+{:app "dougaka.gftd.ai"
+ :impl :clj
+ :graphs
+ {"ai.gftd.apps.dougaka.health" dougaka.graphs.registry/health
+  "ai.gftd.apps.dougaka.render" dougaka.graphs.render/make}}
