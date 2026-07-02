@@ -1,7 +1,7 @@
 (ns dougaka.core-test
   (:require [clojure.edn :as edn]
             [clojure.test :refer [deftest is testing]]
-            [dougaka.ffmpeg-plan :as plan]
+            [douga.ffmpeg :as plan]
             [dougaka.graphs.registry :as reg]))
 
 (def sample-timeline

@@ -1,13 +1,22 @@
 {:paths ["src" "resources"]
 
  :deps {org.clojure/clojure {:mvn/version "1.12.0"}
+        ;; douga craft lib (ADR-2607023000) — the timeline→ffmpeg render-plan
+        ;; pure functions split out of this repo's old dougaka.ffmpeg-plan.
+        io.github.kotoba-lang/douga {:git/url "https://github.com/kotoba-lang/douga"
+                                     :git/sha "8a40c0a86ae51bca71bf5604782a1b165cd6e1d3"}
         http-kit/http-kit   {:mvn/version "2.8.0"}
         metosin/reitit-ring {:mvn/version "0.7.2"}
         ring/ring-core      {:mvn/version "1.12.2"}
         metosin/jsonista    {:mvn/version "0.3.11"}}
 
  :aliases
- {:run
+ {;; Workspace development — use the local lib checkout (no git fetch).
+  :dev
+  {:override-deps
+   {io.github.kotoba-lang/douga {:local/root "../../../kotoba-lang/douga"}}}
+
+  :run
   {:main-opts ["-m" "dougaka.server"]}
 
   :test
