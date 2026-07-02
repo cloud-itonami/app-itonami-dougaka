@@ -1,5 +1,5 @@
 (ns dougaka.graphs.render
-  (:require [dougaka.ffmpeg-plan :as plan]))
+  (:require [douga.ffmpeg :as plan]))
 
 (defn- input-value [m & ks]
   (some #(get m %) ks))
