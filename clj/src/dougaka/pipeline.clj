@@ -19,7 +19,8 @@
             [clojure.java.shell :as shell]
             [douga.ffmpeg :as ff]
             [dougaka.comfy :as comfy]
-            [dougaka.subtitle :as subtitle])
+            [dougaka.subtitle :as subtitle]
+            [dougaka.voice :as voice])
   (:import [java.util Base64])
   (:gen-class))
 
@@ -63,21 +64,25 @@
         _ (.mkdirs dir)
         segs (vec
               (map-indexed
-               (fn [i {:keys [prompt duration]}]
+               (fn [i {:keys [prompt duration subtitle]}]
                  (let [frame (io/file dir (format "shot_%05d.png" i))
                        wav   (io/file dir (format "shot_%05d.wav" i))
                        seg   (io/file dir (format "seg_%05d.mp4" i))
+                       secs  (double (or duration 2.0))
                        r (render-fn {:prompt prompt :seed i
                                      :width (:width dims) :height (:height dims)})]
                    (write-keyframe! r (str frame) {:seed i
                                                    :width (:width dims)
                                                    :height (:height dims)})
-                   ;; voice is a follow-up — hold each keyframe for the shot's
-                   ;; duration over silence (douga's segment cmd is -shortest,
-                   ;; so the audio length IS the shot length)
-                   (sh! (ff/silent-audio-cmd (str wav)
-                                             {:seconds (double (or duration 2.0))
-                                              :sample-rate 24000}))
+                   ;; voice leg (ADR-2607071500 follow-up): 台詞があれば TTS
+                   ;; (VOICEVOX → say)、apad/-t で尺を shot duration ぴったりに
+                   ;; 保つ (douga の segment cmd は -shortest なので audio 長 =
+                   ;; shot 長)。TTS 不達は従来どおり無音に degrade
+                   (let [spoken (io/file dir (format "voice_%05d.wav" i))]
+                     (if (voice/synth! {:text subtitle :out (str spoken)})
+                       (sh! (voice/pad-cmd (str spoken) secs (str wav)))
+                       (sh! (ff/silent-audio-cmd (str wav)
+                                                 {:seconds secs :sample-rate 24000}))))
                    (sh! (ff/scene-segment-cmd (str frame) (str wav) (str seg) dims))
                    ;; concat demuxer resolves entries relative to the list
                    ;; file (which sits in the same dir) — write basenames
