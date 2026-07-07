@@ -5,6 +5,10 @@
         ;; pure functions split out of this repo's old dougaka.ffmpeg-plan.
         io.github.kotoba-lang/douga {:git/url "https://github.com/kotoba-lang/douga"
                                      :git/sha "8a40c0a86ae51bca71bf5604782a1b165cd6e1d3"}
+        ;; keyframe generation (ADR-2607071500) — the shared ComfyUI gateway
+        ;; (config-map instance pattern, ADR-2607011900 correction); its JVM
+        ;; branch uses the http-kit/jsonista this deps.edn already declares.
+        io.github.kotoba-lang/comfyui {:git/sha "4ef264754b8531acbf1f44e2015ec9f0f9b04486"}
         http-kit/http-kit   {:mvn/version "2.8.0"}
         metosin/reitit-ring {:mvn/version "0.7.2"}
         ring/ring-core      {:mvn/version "1.12.2"}
@@ -14,7 +18,8 @@
  {;; Workspace development — use the local lib checkout (no git fetch).
   :dev
   {:override-deps
-   {io.github.kotoba-lang/douga {:local/root "../../../kotoba-lang/douga"}}}
+   {io.github.kotoba-lang/douga {:local/root "../../../kotoba-lang/douga"}
+    io.github.kotoba-lang/comfyui {:local/root "../../../kotoba-lang/comfyui"}}}
 
   :run
   {:main-opts ["-m" "dougaka.server"]}
