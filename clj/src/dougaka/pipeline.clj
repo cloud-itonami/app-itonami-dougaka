@@ -64,7 +64,7 @@
         _ (.mkdirs dir)
         segs (vec
               (map-indexed
-               (fn [i {:keys [prompt duration subtitle]}]
+               (fn [i {:keys [prompt duration subtitle speaker]}]
                  (let [frame (io/file dir (format "shot_%05d.png" i))
                        wav   (io/file dir (format "shot_%05d.wav" i))
                        seg   (io/file dir (format "seg_%05d.mp4" i))
@@ -79,7 +79,7 @@
                    ;; 保つ (douga の segment cmd は -shortest なので audio 長 =
                    ;; shot 長)。TTS 不達は従来どおり無音に degrade
                    (let [spoken (io/file dir (format "voice_%05d.wav" i))]
-                     (if (voice/synth! {:text subtitle :out (str spoken)})
+                     (if (voice/synth! {:text subtitle :speaker speaker :out (str spoken)})
                        (sh! (voice/pad-cmd (str spoken) secs (str wav)))
                        (sh! (ff/silent-audio-cmd (str wav)
                                                  {:seconds secs :sample-rate 24000}))))
