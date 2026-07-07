@@ -29,6 +29,32 @@
 (def default-say-voice
   (or (System/getenv "DOUGAKA_SAY_VOICE") "Kyoko"))
 
+(def speaker-map
+  "Role archetype (episodes/ カタログの :speaker ヒント) → VOICEVOX speaker id
+  (VOICEVOX 0.25.2 の実測 /speakers、ADR-2607071300 設計カタログの演じ分け)。
+  未知の role は default-speaker。id は env でなくここが SSoT — 変えるときは
+  1 箇所。female young=四国めたん(2) / male young=玄野武宏(11) /
+  male adult=青山龍星(13) / female adult=冥鳴ひまり(14) /
+  narrator f=九州そら(16) m=剣崎雌雄(21) / girl=春日部つむぎ(8) /
+  boy=白上虎太郎(12) / ai・機械=ずんだもん(3) / old=後鬼 人間ver.(27)。"
+  {:woman-20s 2 :heroine 2 :daughter 2 :granddaughter 2 :student-f 8
+   :girl 8 :student 8
+   :man-20s 11 :boy 12
+   :man-30s 13 :father 13 :boss 13 :driver 13 :guard 13
+   :woman-30s 14
+   :narrator-f 16 :narrator-m 21
+   :ai 3
+   :old-man 27 :owner 27})
+
+(defn speaker-id
+  "Resolve a shot's :speaker hint → VOICEVOX speaker id (keyword via
+  speaker-map, integer passes through, nil/unknown → default-speaker)."
+  [speaker]
+  (cond
+    (integer? speaker) speaker
+    (keyword? speaker) (get speaker-map speaker default-speaker)
+    :else default-speaker))
+
 (defn- url-encode [s] (URLEncoder/encode (str s) StandardCharsets/UTF_8))
 
 (defn audio-query-url [base text speaker]
@@ -78,13 +104,15 @@
 
 (defn synth!
   "subtitle text → wav at `out`, via VOICEVOX → say → nil (caller falls back
-  to silence). Returns `out` on success, nil otherwise."
-  [{:keys [text out] :as opts}]
+  to silence). `:speaker` may be a role keyword (episodes/ カタログの演じ分け
+  ヒント → speaker-map) or a raw VOICEVOX id. Returns `out` on success."
+  [{:keys [text out speaker] :as opts}]
   (when (and text (seq (str/trim text)))
-    (or (when-let [^bytes wav (voicevox-synth! opts)]
-          (with-open [o (io/output-stream out)] (.write o wav))
-          out)
-        (say-synth! opts))))
+    (let [opts (assoc opts :speaker (speaker-id speaker))]
+      (or (when-let [^bytes wav (voicevox-synth! opts)]
+            (with-open [o (io/output-stream out)] (.write o wav))
+            out)
+          (say-synth! opts)))))
 
 (defn pad-cmd
   "ffmpeg argv: pad/trim `voice-wav` to exactly `seconds` (apad fills the

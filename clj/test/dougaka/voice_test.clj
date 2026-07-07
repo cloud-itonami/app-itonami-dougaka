@@ -17,3 +17,10 @@
 
 (deftest synth-skips-blank-lines
   (is (nil? (voice/synth! {:text "   " :out "/tmp/never.wav"}))))
+
+(deftest speaker-id-resolution
+  (is (= 2 (voice/speaker-id :woman-20s)))
+  (is (= 21 (voice/speaker-id :narrator-m)))
+  (is (= 42 (voice/speaker-id 42)) "raw id passes through")
+  (is (= voice/default-speaker (voice/speaker-id :unknown-role)))
+  (is (= voice/default-speaker (voice/speaker-id nil))))
