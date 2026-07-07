@@ -1,0 +1,19 @@
+(ns dougaka.subtitle-test
+  (:require [clojure.string :as str]
+            [clojure.test :refer [deftest is]]
+            [dougaka.subtitle :as subtitle]))
+
+(def plan
+  {:episode-id "e1"
+   :scenes [{:seq 0 :shots [{:seq 0 :prompt "a" :duration 3 :subtitle "line one"}
+                            {:seq 1 :prompt "b" :duration 4.5 :subtitle "line two"}]}
+            {:seq 1 :shots [{:seq 0 :prompt "c" :duration 2 :subtitle ""}]}]})
+
+(deftest flat-shots-preserves-order
+  (is (= ["a" "b" "c"] (mapv :prompt (subtitle/flat-shots plan)))))
+
+(deftest srt-cumulative-timing-skips-blank-subtitles
+  (let [s (subtitle/srt (subtitle/flat-shots plan))]
+    (is (str/includes? s "1\n00:00:00,000 --> 00:00:03,000\nline one"))
+    (is (str/includes? s "2\n00:00:03,000 --> 00:00:07,500\nline two"))
+    (is (not (str/includes? s "00:00:09,500")) "blank subtitle emits no cue")))

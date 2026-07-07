@@ -1,0 +1,34 @@
+(ns dougaka.comfy-test
+  (:require [clojure.test :refer [deftest is]]
+            [dougaka.comfy :as comfy]))
+
+(deftest render-parses-gateway-success
+  (let [r (comfy/render-via-gateway
+           {:base "http://pod" :api-key nil
+            :http-post (fn [_url _opts]
+                         {:status 200
+                          :body "{\"data\":[{\"b64_json\":\"UE5H\"}]}"})}
+           {:prompt "p" :seed 1 :width 720 :height 1280})]
+    (is (= "UE5H" (:image-b64 r)))
+    (is (= "gateway" (:source r)))))
+
+(deftest render-degrades-to-stub-without-base
+  (let [r (comfy/render-via-gateway
+           {:base nil :http-post (fn [_ _] (throw (ex-info "never" {})))}
+           {:prompt "p" :seed 7})]
+    (is (= "stub" (:source r)))
+    (is (some? (:image-b64 r)) "placeholder still yields an image")))
+
+(deftest render-degrades-to-stub-on-transport-error
+  (let [r (comfy/render-via-gateway
+           {:base "http://pod"
+            :http-post (fn [_ _] {:status 500 :body "boom"})}
+           {:prompt "p" :seed 7})]
+    (is (= "stub" (:source r)))))
+
+(deftest keyframe-workflow-is-vertical-by-default
+  (let [wf (comfy/keyframe-workflow {:prompt "p"})
+        sampler (get wf "ks")]
+    (is (= "DougakaKSampler" (:class_type sampler)))
+    (is (= 720 (get-in sampler [:inputs :width])))
+    (is (= 1280 (get-in sampler [:inputs :height])))))
