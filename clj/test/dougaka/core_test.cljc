@@ -4,6 +4,21 @@
             [douga.ffmpeg :as plan]
             [dougaka.graphs.registry :as reg]))
 
+;; langgraph.edn is now Datomic/Datascript tx-data (a single-entity vector
+;; with :clj.langgraph/* namespaced attrs, ADR-driven Phase 3 EDN-datomize
+;; fanout) rather than a bare map. Reconstitute the original un-namespaced
+;; map shape here so the test below keeps reading `(:graphs manifest)`
+;; unchanged; blob-valued attrs (non-scalar original values) are pr-str'd
+;; strings and need one more edn/read-string to get back the nested map.
+(defn- unblob [v]
+  (if (string? v)
+    (try (let [parsed (edn/read-string v)] (if (coll? parsed) parsed v))
+         (catch Exception _ v))
+    v))
+(defn- reconstitute-entity [tx-data]
+  (into {} (map (fn [[k v]] [(keyword (name k)) (unblob v)]))
+        (dissoc (first tx-data) :db/id)))
+
 (def sample-timeline
   {:videoId "video-abc"
    :scenes [{:index 0 :location "教室" :action "導入"}
@@ -27,7 +42,7 @@
            (:graphs ((:handler (reg/resolve-entry r "health")) {} nil))))))
 
 (deftest manifest-matches-registry
-  (let [manifest (edn/read-string (slurp "langgraph.edn"))
+  (let [manifest (reconstitute-entity (edn/read-string (slurp "langgraph.edn")))
         declared (set (keys (:graphs manifest)))
         actual (set (keys (reg/build)))]
     (is (= actual declared))))

@@ -1,5 +1,1 @@
-{:app "dougaka.gftd.ai"
- :impl :clj
- :graphs
- {"ai.gftd.apps.dougaka.health" dougaka.graphs.registry/health
-  "ai.gftd.apps.dougaka.render" dougaka.graphs.render/make}}
+[{:db/id -1, :clj.langgraph/app "dougaka.gftd.ai", :clj.langgraph/impl :clj, :clj.langgraph/graphs "{\"ai.gftd.apps.dougaka.health\" dougaka.graphs.registry/health, \"ai.gftd.apps.dougaka.render\" dougaka.graphs.render/make}"}]
