@@ -1,0 +1,14 @@
+{:episode-id "three-kingdoms-red-cliffs-internal-motion-v2"
+ :title "Red Cliffs: Before the Wind Turns"
+ :distribution :internal-demo-only
+ :source {:tradition :three-kingdoms :episode :red-cliffs}
+ :rights {:mode :public-domain-source-original-visualization
+          :publish-approved? false
+          :notes "Original visualization based on classical history/literature; no modern adaptation assets."}
+ :scenes [{:seq 0 :setting "Yangtze fleet before battle"
+           :shots [{:seq 0 :image-path "examples/assets/three-kingdoms-red-cliffs-internal-v1.png"
+                    :duration 3 :motion :push-in :subtitle "赤壁、火計前夜。" :voice? false}
+                   {:seq 1 :image-path "examples/assets/three-kingdoms-red-cliffs-internal-v1.png"
+                    :duration 3 :motion :pan-left :subtitle "艦隊は鎖で繋がれた。" :voice? false}
+                   {:seq 2 :image-path "examples/assets/three-kingdoms-red-cliffs-internal-v1.png"
+                    :duration 3 :motion :pull-back :subtitle "あとは、風を待つ。" :voice? false}]}]}

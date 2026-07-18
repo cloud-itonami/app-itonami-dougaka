@@ -1,0 +1,15 @@
+{:episode-id "mahabharata-before-battle-internal-motion-v2"
+ :title "Before Kurukshetra"
+ :distribution :internal-demo-only
+ :source {:tradition :mahabharata :episode :before-kurukshetra}
+ :rights {:mode :traditional-source-original-visualization
+          :publish-approved? false
+          :cultural-review-required? true
+          :notes "Respectful original interpretation; no modern adaptation assets or sensationalized deity imagery."}
+ :scenes [{:seq 0 :setting "A chariot between two waiting armies at dawn"
+           :shots [{:seq 0 :image-path "examples/assets/mahabharata-before-battle-internal-v1.png"
+                    :duration 3 :motion :push-in :subtitle "戦いの前、弓は下ろされた。" :voice? false}
+                   {:seq 1 :image-path "examples/assets/mahabharata-before-battle-internal-v1.png"
+                    :duration 3 :motion :pan-left :subtitle "恐れではない。迷いだった。" :voice? false}
+                   {:seq 2 :image-path "examples/assets/mahabharata-before-battle-internal-v1.png"
+                    :duration 3 :motion :pull-back :subtitle "義務とは、何か。" :voice? false}]}]}

@@ -50,6 +50,30 @@
 
 (def vertical {:width 720 :height 1280 :fps 30})
 
+(defn- motion-segment-cmd
+  "Animate a reviewed still with deterministic 2.5D camera motion. Keeps the
+  output stream shape identical to douga.ffmpeg/scene-segment-cmd."
+  [frame audio out {:keys [width height fps]} seconds motion]
+  (let [frames (long (Math/ceil (* (double seconds) fps)))
+        z-step (/ 0.12 (max 1 (dec frames)))
+        zoom (case motion
+               :pull-back (format "max(1.0,1.12-on*%.9f)" z-step)
+               :pan-left "1.12"
+               :pan-right "1.12"
+               (format "min(1.12,1.0+on*%.9f)" z-step))
+        x (case motion
+            :pan-left (str "(iw-iw/zoom)*(1-on/" (max 1 (dec frames)) ")")
+            :pan-right (str "(iw-iw/zoom)*on/" (max 1 (dec frames)))
+            "(iw-iw/zoom)/2")
+        y "(ih-ih/zoom)/2"
+        vf (str "scale=" width ":" height ":force_original_aspect_ratio=increase,"
+                "crop=" width ":" height ","
+                "zoompan=z='" zoom "':x='" x "':y='" y "':d=" frames
+                ":s=" width "x" height ":fps=" fps ",setsar=1")]
+    ["ffmpeg" "-y" "-loop" "1" "-i" frame "-i" audio
+     "-vf" vf "-t" (str (double seconds)) "-r" (str fps)
+     "-c:v" "libx264" "-pix_fmt" "yuv420p" "-c:a" "aac" "-shortest" out]))
+
 (defn produce!
   "Episode plan → {:video :srt :shots :dir}. opts:
     :dir        output dir (default target/dougaka/<episode-id>)
@@ -64,26 +88,34 @@
         _ (.mkdirs dir)
         segs (vec
               (map-indexed
-               (fn [i {:keys [prompt duration subtitle speaker]}]
+               (fn [i {:keys [prompt duration subtitle speaker image-path voice? motion]
+                       :or {voice? true}}]
                  (let [frame (io/file dir (format "shot_%05d.png" i))
                        wav   (io/file dir (format "shot_%05d.wav" i))
                        seg   (io/file dir (format "seg_%05d.mp4" i))
                        secs  (double (or duration 2.0))
-                       r (render-fn {:prompt prompt :seed i
-                                     :width (:width dims) :height (:height dims)})]
-                   (write-keyframe! r (str frame) {:seed i
-                                                   :width (:width dims)
-                                                   :height (:height dims)})
+                       r (when-not image-path
+                           (render-fn {:prompt prompt :seed i
+                                       :width (:width dims) :height (:height dims)}))]
+                   (if image-path
+                     (io/copy (io/file image-path) frame)
+                     (write-keyframe! r (str frame) {:seed i
+                                                     :width (:width dims)
+                                                     :height (:height dims)}))
                    ;; voice leg (ADR-2607071500 follow-up): 台詞があれば TTS
                    ;; (VOICEVOX → say)、apad/-t で尺を shot duration ぴったりに
                    ;; 保つ (douga の segment cmd は -shortest なので audio 長 =
                    ;; shot 長)。TTS 不達は従来どおり無音に degrade
                    (let [spoken (io/file dir (format "voice_%05d.wav" i))]
-                     (if (voice/synth! {:text subtitle :speaker speaker :out (str spoken)})
+                     (if (and voice?
+                              (voice/synth! {:text subtitle :speaker speaker :out (str spoken)}))
                        (sh! (voice/pad-cmd (str spoken) secs (str wav)))
                        (sh! (ff/silent-audio-cmd (str wav)
                                                  {:seconds secs :sample-rate 24000}))))
-                   (sh! (ff/scene-segment-cmd (str frame) (str wav) (str seg) dims))
+                   (sh! (if motion
+                          (motion-segment-cmd (str frame) (str wav) (str seg)
+                                              dims secs motion)
+                          (ff/scene-segment-cmd (str frame) (str wav) (str seg) dims)))
                    ;; concat demuxer resolves entries relative to the list
                    ;; file (which sits in the same dir) — write basenames
                    (.getName seg)))
