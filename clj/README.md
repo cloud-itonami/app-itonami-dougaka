@@ -15,4 +15,13 @@ or write the D1 render log in-process.
 ```bash
 clojure -M:test
 PORT=8000 clojure -M:run
+
+# Internal live-action demo using a reviewed local keyframe
+clojure -M:dev -m dougaka.pipeline \
+  examples/india-ludo-live-action-internal.edn \
+  target/dougaka/india-ludo-live-action-internal-v1
 ```
+
+Offline episode shots may provide `:image-path` instead of invoking the
+configured image gateway. This is intended for reviewed internal-demo assets;
+the path is copied into the run directory before ffmpeg assembly.

@@ -1,0 +1,14 @@
+{:episode-id "shiji-hong-gate-internal-motion-v2"
+ :title "The Banquet at Hong Gate"
+ :distribution :internal-demo-only
+ :source {:work "史記" :episode :hong-gate-banquet}
+ :rights {:mode :public-domain-source-original-visualization
+          :publish-approved? false
+          :notes "Original visualization based on the classical account; no modern adaptation assets."}
+ :scenes [{:seq 0 :setting "A rain-bound military banquet"
+           :shots [{:seq 0 :image-path "examples/assets/shiji-hong-gate-internal-v1.png"
+                    :duration 3 :motion :push-in :subtitle "宴が始まる。" :voice? false}
+                   {:seq 1 :image-path "examples/assets/shiji-hong-gate-internal-v1.png"
+                    :duration 3 :motion :pan-right :subtitle "剣舞は、合図だった。" :voice? false}
+                   {:seq 2 :image-path "examples/assets/shiji-hong-gate-internal-v1.png"
+                    :duration 3 :motion :pull-back :subtitle "天下の行方は、沈黙の中に。" :voice? false}]}]}
