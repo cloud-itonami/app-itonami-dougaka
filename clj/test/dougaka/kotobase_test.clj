@@ -1,0 +1,46 @@
+(ns dougaka.kotobase-test
+  (:require [clojure.string :as str]
+            [clojure.test :refer [deftest is testing]]
+            [dougaka.kotobase :as kb])
+  (:import [java.security MessageDigest]))
+
+(defn- sha256 [^String s]
+  (map #(bit-and % 0xff)
+       (.digest (MessageDigest/getInstance "SHA-256")
+                (.getBytes s "UTF-8"))))
+
+(deftest raw-cid-matches-a-real-published-artifact
+  (testing "the CID of an empty object — the canonical raw/sha2-256 fixture"
+    ;; sha256("") is the most widely published raw CIDv1 there is; if our
+    ;; base32 or the multihash prefix drifts, this is the first thing to break.
+    (is (= "bafkreihdwdcefgh4dqkjv67uzcmw7ojee6xedzdetojuzjevtenxquvyku"
+           (kb/raw-cid (sha256 "")))))
+  (testing "digest length is enforced — a truncated digest must not become a CID"
+    (is (thrown? clojure.lang.ExceptionInfo (kb/raw-cid (take 31 (sha256 "x")))))
+    (is (thrown? clojure.lang.ExceptionInfo (kb/raw-cid [])))))
+
+(deftest cid-shape
+  (let [cid (kb/raw-cid (sha256 "dougaka"))]
+    (testing "raw CIDv1 sha2-256 is always the bafkrei… 59-character form"
+      (is (str/starts-with? cid "bafkrei"))
+      (is (= 59 (count cid)))
+      (is (re-matches #"b[a-z2-7]+" cid) "lowercase base32, unpadded")))
+  (testing "content addressing: same bytes -> same name, different bytes -> different"
+    (is (= (kb/raw-cid (sha256 "same")) (kb/raw-cid (sha256 "same"))))
+    (is (not= (kb/raw-cid (sha256 "a")) (kb/raw-cid (sha256 "b"))))))
+
+(deftest archive-urls
+  (is (= "https://kotobase.net/ipfs/bafk1" (kb/archive-url "bafk1")))
+  (testing "host override loses trailing slashes so the path never doubles up"
+    (is (= "https://x.example/ipfs/bafk1" (kb/archive-url "https://x.example//" "bafk1"))))
+  (testing "an absent override falls back to kotobase.net"
+    (is (= kb/default-host (kb/host nil)))
+    (is (= kb/default-host (kb/host "  ")))
+    (is (= "https://x.example" (kb/host "https://x.example/")))))
+
+(deftest content-types-cover-what-a-production-emits
+  (is (= "video/mp4" (:mp4 kb/content-types)))
+  (is (= "audio/wav" (:wav kb/content-types)))
+  (testing "none of these are in kotobase's web-serve allowlist — production
+            intermediates are opaque downloads, not pages"
+    (is (not-any? #{"text/html" "application/javascript"} (vals kb/content-types)))))
