@@ -9,6 +9,13 @@
         ;; (config-map instance pattern, ADR-2607011900 correction); its JVM
         ;; branch uses the http-kit/jsonista this deps.edn already declares.
         io.github.kotoba-lang/comfyui {:git/sha "4ef264754b8531acbf1f44e2015ec9f0f9b04486"}
+        ;; shared murakumo generation client (ADR-2607299960 follow-up) — the
+        ;; API's real host, geometry/frame ranges, artifact-URL rebasing,
+        ;; digest verification and cold-start retry live there so every -ka
+        ;; repo gets them instead of relearning each one from a 400.
+        io.github.kotoba-lang/murakumo-generation
+        {:git/url "https://github.com/kotoba-lang/murakumo-generation"
+         :git/sha "ce6e673ac7317befdcef767d1e9da3754bc28ba4"}
         http-kit/http-kit   {:mvn/version "2.8.0"}
         metosin/reitit-ring {:mvn/version "0.7.2"}
         ring/ring-core      {:mvn/version "1.12.2"}
