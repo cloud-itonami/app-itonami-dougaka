@@ -88,18 +88,65 @@
           :else (do (Thread/sleep (job/poll-backoff-ms attempt))
                     (recur (inc attempt))))))))
 
+(defn- sha256-hex [f]
+  (let [d (.digest (java.security.MessageDigest/getInstance "SHA-256")
+                   (java.nio.file.Files/readAllBytes (.toPath (io/file f))))]
+    (apply str (map #(format "%02x" (bit-and % 0xff)) d))))
+
 (defn- download!
-  "artifact url -> file at `out`, returns out. nil on failure (warned)."
-  [url out tok]
+  "artifact url -> file at `out`, returns out. nil on failure (warned).
+
+  When the job declared a contentHash, the written bytes are verified against
+  it and a mismatch is discarded — a truncated download must not be muxed into
+  an episode and stored under a name that does not describe it."
+  [url out tok expect-sha]
   (try
     (let [b (-> (HttpRequest/newBuilder (URI/create url))
                 (.timeout (Duration/ofMinutes 5)))
           _ (when tok (.header b "authorization" (str "Bearer " tok)))
           resp (.send (client) (.build b) (HttpResponse$BodyHandlers/ofInputStream))]
-      (if (<= 200 (.statusCode resp) 299)
-        (do (io/copy (.body resp) (io/file out)) out)
-        (do (warn "artifact" url "->" (.statusCode resp)) nil)))
+      (if-not (<= 200 (.statusCode resp) 299)
+        (do (warn "artifact" url "->" (.statusCode resp)) nil)
+        (do (io/copy (.body resp) (io/file out))
+            (let [got (when expect-sha (sha256-hex out))]
+              (if (and expect-sha (not= got expect-sha))
+                (do (warn "artifact" url "digest mismatch — discarded"
+                          (str "(expected " (subs expect-sha 0 12) "…, got "
+                               (subs (str got) 0 (min 12 (count (str got)))) "…)"))
+                    (io/delete-file (io/file out) true)
+                    nil)
+                out)))))
     (catch Exception e (warn "artifact" url "-> " (.getMessage e)) nil)))
+
+(def cold-start-retries
+  "How many times a cold-fleet failure is retried before the leg degrades.
+  The worker takes tens of seconds to boot, so two more attempts spaced by
+  cold-start-wait-ms covers it without turning a genuinely broken job into a
+  five-minute stall."
+  2)
+
+(def cold-start-wait-ms 45000)
+
+(defn- attempt!
+  "One submit/poll/download round trip. Returns {:ok result} | {:cold msg} |
+  {:dead reason} so the caller can tell 'not up yet' from 'will never work'."
+  [body out tok label timeout-ms]
+  (if-let [id (submit! body tok)]
+    (let [status (await-job! id tok {:timeout-ms (or timeout-ms 600000)})]
+      (cond
+        (nil? status) {:dead "no terminal status"}
+        (job/failed? status)
+        (let [msg (job/job-error status)]
+          (if (job/cold-start? msg)
+            {:cold (str "job " id ": " msg)}
+            {:dead (str "job " id " failed: " msg)}))
+        :else
+        (if-let [url (job/artifact-url (base-url) status)]
+          (if (download! url out tok (job/artifact-sha256 status))
+            {:ok {:file (str out) :cid (job/artifact-cid status) :job-id id}}
+            {:dead (str "job " id ": artifact download failed")})
+          {:dead (str "job " id " done but produced no artifact")})))
+    {:dead "not accepted by the fleet"}))
 
 (defn generate!
   "Body -> a local file at `out`, or nil.
@@ -109,20 +156,22 @@
   missing, download failed. `label` names the step in the warning so a
   degraded episode says WHICH shot lost its image.
 
+  A cold-fleet failure is retried rather than degraded — see
+  dougaka.murakumo-job/cold-start-signatures for why.
+
   Returns {:file out :cid <artifact cid or nil> :job-id id} on success."
   [body out {:keys [label timeout-ms] :or {label "job"}}]
   (if-let [tok (token)]
-    (if-let [id (submit! body tok)]
-      (let [status (await-job! id tok {:timeout-ms (or timeout-ms 600000)})]
+    (loop [tries-left cold-start-retries]
+      (let [r (attempt! body out tok label timeout-ms)]
         (cond
-          (nil? status) nil
-          (job/failed? status) (do (warn label "job" id "failed:" (job/job-error status)) nil)
-          :else
-          (if-let [url (job/artifact-url status)]
-            (when (download! url out tok)
-              {:file (str out) :cid (job/artifact-cid status) :job-id id})
-            (do (warn label "job" id "done but produced no artifact") nil))))
-      (do (warn label "was not accepted by the fleet") nil))
+          (:ok r) (:ok r)
+          (and (:cold r) (pos? tries-left))
+          (do (warn label (:cold r) "— fleet is still waking, retrying in"
+                    (quot cold-start-wait-ms 1000) "s")
+              (Thread/sleep cold-start-wait-ms)
+              (recur (dec tries-left)))
+          :else (do (warn label (or (:dead r) (:cold r))) nil))))
     (do (warn label "skipped — no MURAKUMO_GENERATION_TOKEN in env") nil)))
 
 ;; ── production steps ────────────────────────────────────────────────────────
@@ -131,9 +180,9 @@
   "A shot's own art direction -> a real moving clip. This is what replaces the
   solid-colour placeholder: the plan's :prompt was always written for a video
   model, it just had nowhere to go."
-  [{:keys [prompt seconds width height fps seed model image-url]} out]
+  [{:keys [prompt seconds width height seed model image-url]} out]
   (generate! (job/video-body {:prompt prompt :seconds seconds :width width
-                              :height height :fps fps :seed seed :model model
+                              :height height :seed seed :model model
                               :image-url image-url})
              out {:label (str "video shot " seed) :timeout-ms 900000}))
 
