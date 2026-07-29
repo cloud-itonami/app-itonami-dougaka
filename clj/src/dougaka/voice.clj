@@ -42,9 +42,36 @@
    :man-20s 11 :boy 12
    :man-30s 13 :father 13 :boss 13 :driver 13 :guard 13
    :woman-30s 14
-   :narrator-f 16 :narrator-m 21
+   ;; :narrator は dougaka-actor の実写/ミニドキュメンタリー catalog が実際に
+   ;; 使っている綴り。map に無かったため 8 shot すべてが default(ずんだもん=
+   ;; AI・機械役)に落ち、公開済みエピソードのナレーションがその声で読まれて
+   ;; いた(2026-07-29 実測: 公開 mp4 の基本周波数が全ショット同一・測定上限
+   ;; 張り付き)。地の文の既定は女性ナレーター。
+   :narrator 16 :narration 16 :narrator-f 16 :narrator-m 21
    :ai 3
    :old-man 27 :owner 27})
+
+(def fleet-voice-map
+  "Role archetype → murakumo TTS(:voice function, 既定 cosyvoice2 ja)へ渡す
+  voice 名。VOICEVOX が無い環境でも演じ分けを失わないための対応表 —
+  speaker-map と同じ役語彙を、fleet 側の話者名に写す。未知の役は nil を返し、
+  fleet 側の既定話者に委ねる(こちらで勝手に別の役を当てない)。"
+  {:woman-20s "ja-female-young" :heroine "ja-female-young"
+   :daughter "ja-female-young" :granddaughter "ja-female-young"
+   :student-f "ja-girl" :girl "ja-girl" :student "ja-girl"
+   :man-20s "ja-male-young" :boy "ja-boy"
+   :man-30s "ja-male-adult" :father "ja-male-adult" :boss "ja-male-adult"
+   :driver "ja-male-adult" :guard "ja-male-adult"
+   :woman-30s "ja-female-adult"
+   :narrator "ja-narrator-female" :narration "ja-narrator-female"
+   :narrator-f "ja-narrator-female" :narrator-m "ja-narrator-male"
+   :ai "ja-synthetic"
+   :old-man "ja-elder"})
+
+(defn fleet-voice
+  "Shot の :speaker ヒント → murakumo TTS の voice 名 | nil(fleet 既定に委ねる)。"
+  [speaker]
+  (when (keyword? speaker) (get fleet-voice-map speaker)))
 
 (defn speaker-id
   "Resolve a shot's :speaker hint → VOICEVOX speaker id (keyword via

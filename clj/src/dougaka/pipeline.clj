@@ -7,18 +7,34 @@
   ffmpeg → a real vertical H.264 mp4 + sidecar SRT.
 
   The server keeps planning only; THIS entrypoint is the explicit offline
-  encode leg (fleet/laptop, where ffmpeg lives). A stub/SVG keyframe (no GPU)
-  is replaced by a deterministic solid-color frame so the pipeline ALWAYS
-  yields a playable video — the same never-throw honesty rule as
-  comfyui.gateway's placeholder.
+  encode leg (ffmpeg lives here); every GENERATIVE step runs on the murakumo
+  fleet and every artifact is stored on kotobase.net.
+
+    compute  = murakumo.cloud  — dougaka.murakumo
+      shot :prompt  -> :video (ltx-2.3 et al) -> a real moving clip
+      shot :subtitle-> :voice (cosyvoice2 ja) -> narration, cast by role
+      episode mood  -> :music (ace-step)      -> a bed under the whole cut
+      shot cue      -> :sfx   (stable-audio)  -> a one-shot at its timestamp
+    storage  = kotobase.net    — dougaka.archive
+      every artifact PUT under the sha2-256 CID of its own bytes, so a
+      production is reproducible from CIDs instead of a laptop's target/.
+
+  Degrade order is honest and per-leg: a shot with no fleet clip falls back
+  to the keyframe path (ComfyUI pod, then a deterministic solid-colour frame),
+  narration falls back to VOICEVOX -> `say` -> silence, and the bed/cues are
+  simply absent. The pipeline ALWAYS yields a playable video — but the result
+  map says which legs degraded, so a placeholder never reads as success.
 
   Usage: clojure -M:dev -m dougaka.pipeline               ; 3-shot demo plan
          clojure -M:dev -m dougaka.pipeline <plan.edn> [out-dir]"
   (:require [clojure.edn :as edn]
             [clojure.java.io :as io]
             [clojure.java.shell :as shell]
+            [clojure.string :as str]
             [douga.ffmpeg :as ff]
+            [dougaka.archive :as archive]
             [dougaka.comfy :as comfy]
+            [dougaka.murakumo :as murakumo]
             [dougaka.subtitle :as subtitle]
             [dougaka.voice :as voice])
   (:import [java.util Base64])
@@ -74,59 +90,169 @@
      "-vf" vf "-t" (str (double seconds)) "-r" (str fps)
      "-c:v" "libx264" "-pix_fmt" "yuv420p" "-c:a" "aac" "-shortest" out]))
 
+(def bed-gain
+  "Linear gain for the music bed. The bed exists to stop the ~4-5s holes
+  between narration lines from being dead air (measured on the published
+  2026-07-28/29 episodes: 8 silence gaps, 38 of 60 seconds), not to compete
+  with the voice."
+  0.16)
+
+(defn bed-prompt
+  "Episode plan -> the mood line handed to the fleet's music function. Uses
+  what the plan already states about itself (genre + logline); no house style
+  is invented here."
+  [plan]
+  (->> [(:genre plan) (:logline plan) (:title plan)]
+       (map #(str/trim (str (or % ""))))
+       (remove str/blank?)
+       (str/join " / ")))
+
+(defn plan-duration
+  "Total planned seconds — the bed is asked for exactly this long."
+  [shots]
+  (reduce + 0.0 (map #(double (or (:duration %) 2.0)) shots)))
+
+(defn cue-overlays
+  "Shots -> the SFX overlay list, each cue placed at its own shot's start.
+  A shot opts in by carrying :sfx (a short description of the sound); shots
+  without one contribute nothing, so a plan that never asks for effects pays
+  no fleet time."
+  [shots sfx-files]
+  (->> shots
+       (map-indexed (fn [i s] [i s]))
+       (keep (fn [[i s]]
+               (when-let [f (get sfx-files i)]
+                 {:file f
+                  :at-sec (reduce + 0.0 (map #(double (or (:duration %) 2.0))
+                                             (take i shots)))
+                  :gain (double (or (:sfx-gain s) 0.7))})))
+       vec))
+
+(defn- shot-clip!
+  "Shot -> a generated moving clip on the fleet, or nil (degrade to keyframe).
+  Skipped entirely when the plan pins its own :image-path, which means the
+  operator already chose the image for this shot."
+  [{:keys [prompt duration image-path video-model]} i dims clip]
+  (when-not image-path
+    (murakumo/shot-video! {:prompt prompt
+                           :seconds (double (or duration 2.0))
+                           :width (:width dims) :height (:height dims)
+                           :fps (:fps dims) :seed i :model video-model}
+                          (str clip))))
+
+(defn- narration!
+  "Shot -> a narration wav padded to exactly the shot duration, or nil.
+  murakumo TTS first (so the cast survives on a machine with no VOICEVOX),
+  then the existing local chain. Either way the role in the plan decides the
+  voice — :narrator no longer falls through to the AI/machine speaker."
+  [{:keys [subtitle speaker voice? voice-model] :or {voice? true}} secs spoken wav]
+  (when voice?
+    (let [fleet (murakumo/narration! {:text subtitle
+                                      :voice (voice/fleet-voice speaker)
+                                      :model voice-model}
+                                     (str spoken))]
+      (when (or fleet (voice/synth! {:text subtitle :speaker speaker :out (str spoken)}))
+        (sh! (voice/pad-cmd (str spoken) secs (str wav)))
+        (if fleet :murakumo :local)))))
+
 (defn produce!
-  "Episode plan → {:video :srt :shots :dir}. opts:
+  "Episode plan → a produced episode. opts:
     :dir        output dir (default target/dougaka/<episode-id>)
-    :render-fn  (fn [shot-spec] -> gateway render result) — default
-                dougaka.comfy/render-keyframe (env-configured pod, stub offline)
-    :dims       {:width :height :fps} (default vertical 720x1280@30)"
-  [plan & [{:keys [dir render-fn dims]
-            :or {render-fn comfy/render-keyframe dims vertical}}]]
+    :render-fn  keyframe fallback (fn [shot-spec] -> gateway render result) —
+                default dougaka.comfy/render-keyframe (env pod, stub offline)
+    :dims       {:width :height :fps} (default vertical 720x1280@30)
+    :bed?       ask the fleet for a music bed (default true)
+    :archive?   mirror every artifact to kotobase.net (default true)
+
+  Returns {:video :srt :shots :dir :legs :artifacts}, where :legs records what
+  each generative step actually did (:murakumo / :local / :placeholder / nil)
+  so a caller can refuse to publish a degraded cut."
+  [plan & [{:keys [dir render-fn dims bed? archive?]
+            :or {render-fn comfy/render-keyframe dims vertical
+                 bed? true archive? true}}]]
   (let [shots (subtitle/flat-shots plan)
         _ (when (empty? shots) (throw (ex-info "plan has no shots" {:plan plan})))
         dir (io/file (or dir (str "target/dougaka/" (or (:episode-id plan) "episode"))))
         _ (.mkdirs dir)
+        legs (atom {:video [] :voice [] :sfx []})
+        sfx-files (atom {})
         segs (vec
               (map-indexed
-               (fn [i {:keys [prompt duration subtitle speaker image-path voice? motion]
-                       :or {voice? true}}]
+               (fn [i {:keys [prompt duration subtitle speaker image-path motion sfx] :as shot}]
                  (let [frame (io/file dir (format "shot_%05d.png" i))
+                       clip  (io/file dir (format "clip_%05d.mp4" i))
                        wav   (io/file dir (format "shot_%05d.wav" i))
                        seg   (io/file dir (format "seg_%05d.mp4" i))
+                       spoken (io/file dir (format "voice_%05d.wav" i))
                        secs  (double (or duration 2.0))
-                       r (when-not image-path
-                           (render-fn {:prompt prompt :seed i
-                                       :width (:width dims) :height (:height dims)}))]
-                   (if image-path
-                     (io/copy (io/file image-path) frame)
-                     (write-keyframe! r (str frame) {:seed i
-                                                     :width (:width dims)
-                                                     :height (:height dims)}))
-                   ;; voice leg (ADR-2607071500 follow-up): 台詞があれば TTS
-                   ;; (VOICEVOX → say)、apad/-t で尺を shot duration ぴったりに
-                   ;; 保つ (douga の segment cmd は -shortest なので audio 長 =
-                   ;; shot 長)。TTS 不達は従来どおり無音に degrade
-                   (let [spoken (io/file dir (format "voice_%05d.wav" i))]
-                     (if (and voice?
-                              (voice/synth! {:text subtitle :speaker speaker :out (str spoken)}))
-                       (sh! (voice/pad-cmd (str spoken) secs (str wav)))
+                       generated (shot-clip! shot i dims clip)]
+                   ;; ── image leg ─────────────────────────────────────────
+                   (let [r (when (and (not generated) (not image-path))
+                             (render-fn {:prompt prompt :seed i
+                                         :width (:width dims) :height (:height dims)}))]
+                     (when-not generated
+                       (if image-path
+                         (io/copy (io/file image-path) frame)
+                         (write-keyframe! r (str frame) {:seed i
+                                                         :width (:width dims)
+                                                         :height (:height dims)})))
+                     (swap! legs update :video conj
+                            (cond generated :murakumo
+                                  image-path :operator-image
+                                  (= "image/png" (:mime r)) :comfy
+                                  :else :placeholder)))
+                   ;; ── voice leg ─────────────────────────────────────────
+                   (let [got (narration! shot secs spoken wav)]
+                     (when-not got
                        (sh! (ff/silent-audio-cmd (str wav)
-                                                 {:seconds secs :sample-rate 24000}))))
-                   (sh! (if motion
-                          (motion-segment-cmd (str frame) (str wav) (str seg)
-                                              dims secs motion)
-                          (ff/scene-segment-cmd (str frame) (str wav) (str seg) dims)))
+                                                 {:seconds secs :sample-rate 24000})))
+                     (swap! legs update :voice conj (or got :silent)))
+                   ;; ── cue leg (opt-in per shot) ─────────────────────────
+                   (when sfx
+                     (let [f (io/file dir (format "sfx_%05d.wav" i))]
+                       (when (murakumo/sfx! {:prompt sfx :seconds (min 4.0 secs)} (str f))
+                         (swap! sfx-files assoc i (str f))
+                         (swap! legs update :sfx conj i))))
+                   ;; ── assemble the segment ──────────────────────────────
+                   (sh! (cond
+                          generated (ff/video-segment-cmd (str clip) (str seg)
+                                                          {:duration-sec secs
+                                                           :width (:width dims)
+                                                           :height (:height dims)
+                                                           :fps (:fps dims)
+                                                           :audio-path (str wav)})
+                          motion (motion-segment-cmd (str frame) (str wav) (str seg)
+                                                     dims secs motion)
+                          :else (ff/scene-segment-cmd (str frame) (str wav) (str seg) dims)))
                    ;; concat demuxer resolves entries relative to the list
                    ;; file (which sits in the same dir) — write basenames
                    (.getName seg)))
                shots))
         list-file (io/file dir "concat.txt")
         _ (spit list-file (ff/concat-list-text segs))
+        cut (io/file dir (str (or (:episode-id plan) "episode") "-cut.mp4"))
         out (io/file dir (str (or (:episode-id plan) "episode") ".mp4"))
         srt (io/file dir (str (or (:episode-id plan) "episode") ".srt"))]
     (spit srt (subtitle/srt shots))
-    (sh! (ff/concat-segments-cmd (str list-file) (str out)))
-    {:video (str out) :srt (str srt) :shots (count shots) :dir (str dir)}))
+    (sh! (ff/concat-segments-cmd (str list-file) (str cut)))
+    ;; ── bed + cues over the finished cut ──────────────────────────────────
+    (let [bed (when bed?
+                (let [f (io/file dir "bgm.wav")]
+                  (when (murakumo/music! {:prompt (bed-prompt plan)
+                                          :seconds (plan-duration shots)}
+                                         (str f))
+                    {:file (str f) :loop? true :gain bed-gain :at-sec 0})))
+          overlays (into (vec (remove nil? [bed])) (cue-overlays shots @sfx-files))]
+      (sh! (ff/audio-overlay-mix-cmd (str cut) overlays (str out)))
+      (let [artifacts (when archive?
+                        (archive/put-all!
+                         (concat [[out :mp4] [srt :srt]]
+                                 (when bed [[(:file bed) :wav]])
+                                 (map (fn [f] [f :wav]) (vals @sfx-files)))))]
+        {:video (str out) :srt (str srt) :shots (count shots) :dir (str dir)
+         :legs (assoc @legs :bed (boolean bed) :overlays (count overlays))
+         :artifacts (vec artifacts)
+         :cid (some (fn [a] (when (= (str out) (:file a)) (:cid a))) artifacts)}))))
 
 (def demo-plan
   {:episode-id "demo-1"
