@@ -171,6 +171,37 @@
                                                     :lines [{:scene_index 0 :line_index 0 :text "t"}]}})]
       (is (re-find #"render: " (:error final))))))
 
+;; ── generation endpoint defaults (ADR-2607173100) ───────────────────────────
+;; `:murakumo-tts-url` / `:murakumo-image-url` used to default to an ephemeral
+;; RunPod pod hostname. RunPod releases those names and can reassign them to
+;; another tenant, so the default named a host someone else may come to own —
+;; and these values are handed to a renderer as the place to send narration
+;; text and image prompts. Nothing authenticates to them (the only secret in
+;; this ns, `:internal-secret`, goes to the dispatcher and is asserted below by
+;; `audit-secret-is-an-explicit-capability`), so the concern is payload
+;; disclosure rather than credential disclosure.
+
+(deftest generation-urls-are-unset-by-default
+  (testing "the host injects these, like the B2 credentials next to them"
+    (is (= "" (:murakumo-tts-url audit/default-config)))
+    (is (= "" (:murakumo-image-url audit/default-config)))))
+
+(deftest no-default-points-at-an-ephemeral-pod-host
+  (testing "no value in default-config names a reassignable RunPod hostname"
+    (doseq [[k v] audit/default-config]
+      (when (string? v)
+        (is (not (re-find #"proxy\.runpod\.net" v))
+            (str k " must not default to a hostname another tenant can own"))))))
+
+(deftest generation-urls-are-still-host-overridable
+  ;; Positive control: passes both before and after the default changed. If
+  ;; this fails, the fix removed the injection seam rather than the bad default.
+  (testing "an explicit host-config still wins over the default"
+    (let [cfg (audit/config {:host-config {:murakumo-tts-url "http://tts.internal"
+                                           :murakumo-image-url "http://image.internal"}})]
+      (is (= "http://tts.internal" (:murakumo-tts-url cfg)))
+      (is (= "http://image.internal" (:murakumo-image-url cfg))))))
+
 (defn run []
   (let [{:keys [fail error]} (run-tests 'lg-dougaka.test-smoke)]
     (System/exit (if (pos? (+ fail error)) 1 0))))
