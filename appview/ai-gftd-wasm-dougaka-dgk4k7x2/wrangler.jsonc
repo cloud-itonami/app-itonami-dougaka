@@ -12,17 +12,13 @@
   "vars": {
     "APP_ACTOR_HANDLE": "dougaka",
     "APP_CAPABILITIES": "[\"edge-assets\",\"bpmn-dispatch\"]",
-    "APP_DESCRIPTION": "Edge facade + internal /_d1 endpoint for Dougaka, a UI-less video-render backend generation actor (invoked pod-to-pod by lg-shinshi). Render log persists to Cloudflare D1 (ai-gftd-dougaka); mp4 to B2.",
+    "APP_DESCRIPTION": "Dougaka is a UI-less video-render backend generation actor invoked pod-to-pod by lg-shinshi. Production artifacts persist in the kotobase.net content-addressed archive.",
     "APP_DISPLAY_NAME": "Dougaka",
     "APP_FRAMEWORK": "ts-native",
     "APP_NANOID": "dgk4k7x2",
     "APP_PERFORMER_TYPE": "service",
     "APP_UI_TYPE": "appview"
   },
-  // database_id: fill after `wrangler d1 create ai-gftd-dougaka`.
-  "d1_databases": [
-    { "binding": "DOUGAKA_DB", "database_name": "ai-gftd-dougaka", "database_id": "0059f74b-1f0a-4899-ba59-b2ebbe2be254" }
-  ],
   "secrets_store_secrets": [
     { "binding": "DISPATCHER_INTERNAL_SECRET", "store_id": "1824561668fe47cc9127d493961885af", "secret_name": "dispatcher_internal_secret" }
   ],
