@@ -9,7 +9,7 @@
   "profile": {
     "agentType": "reactive",
     "capabilities": ["edge-assets", "bpmn-dispatch"],
-    "description": "UI-less video-render backend generation actor (invoked pod-to-pod by lg-shinshi). Render log persists to Cloudflare D1 (ai-gftd-dougaka); mp4 to B2.",
+    "description": "UI-less video-render backend generation actor invoked pod-to-pod by lg-shinshi. Production artifacts persist in the kotobase.net content-addressed archive.",
     "displayName": "Dougaka",
     "isBot": true
   },
