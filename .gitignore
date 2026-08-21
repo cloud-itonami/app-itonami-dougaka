@@ -37,3 +37,6 @@ venv/
 *.log
 coverage/
 test-results/
+
+# Clojure CLI classpath cache — machine-specific absolute paths, never shared
+.cpcache/
