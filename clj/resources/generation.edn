@@ -1,0 +1,32 @@
+;; resources/generation.edn — which fleet model each generative leg asks for.
+;;
+;; Why this file exists (measured 2026-08-22): the generation gateway now
+;; refuses a request that does not state a model —
+;;   400 {"type":"murakumo_billing_underspecified","got":{"modality":"sfx","model":null}}
+;; — and the shared client (murakumo.generation) only sends :model when the
+;; caller gives one. dougaka's plans never carried one, so EVERY fleet leg
+;; had been degrading to placeholder/local since that rule landed, and the
+;; legs report said :placeholder without saying why. These defaults are the
+;; public catalog's (`GET /api/v1/generation/catalog`) defaults on that day,
+;; with the catalog's own :status next to each so a reader knows which ones
+;; the fleet has actually measured. Override per process with
+;; DOUGAKA_VIDEO_MODEL / DOUGAKA_VOICE_MODEL / DOUGAKA_MUSIC_MODEL /
+;; DOUGAKA_SFX_MODEL, or per shot with :video-model / :voice-model in the plan.
+;;
+;; Not a promise that a leg runs: the same day, submit reached the billing
+;; layer and the ledger refused the proxy's own service token
+;; (401 "/infer/spend requires either a matching CACAO ... or a valid
+;; MURAKUMO_SERVICE_TOKEN bearer"). That is a fleet-side secret mismatch
+;; between two workers, outside this repo; until it is fixed every billed
+;; generation — not just dougaka's — is refused fail-closed.
+{:generation/version 1
+ :catalog-url "https://generation.murakumo.cloud/api/v1/generation/catalog"
+ :measured "2026-08-22"
+ :video {:model "minimax-h3" :catalog-status :verified
+         :alternatives {"wan2.2-ti2v-5b" :verified "hunyuanvideo-1.5" :verified
+                        "seedance-2.0-fast" :production "ltx-2.3" :broken}}
+ :voice {:model "cosyvoice2" :catalog-status :unverified
+         :alternatives {"kokoro" :unverified}}
+ :music {:model "ace-step" :catalog-status :production
+         :alternatives {"musicgen-small" :verified}}
+ :sfx   {:model "musicgen-small" :catalog-status :verified}}
