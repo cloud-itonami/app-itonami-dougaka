@@ -26,7 +26,8 @@
   map says which legs degraded, so a placeholder never reads as success.
 
   Usage: clojure -M:dev -m dougaka.pipeline               ; 3-shot demo plan
-         clojure -M:dev -m dougaka.pipeline <plan.edn> [out-dir]"
+         clojure -M:dev -m dougaka.pipeline <plan.edn> [out-dir]
+             [--aspect portrait|landscape] [--no-burn]"
   (:require [clojure.edn :as edn]
             [clojure.java.io :as io]
             [clojure.java.shell :as shell]
@@ -65,6 +66,15 @@
   path)
 
 (def vertical {:width 720 :height 1280 :fps 30})
+(def landscape {:width 1280 :height 720 :fps 30})
+
+(defn dims-for
+  "Aspect keyword/string -> dims. :portrait (default, 9:16) or :landscape
+  (16:9) — the two shapes MoneyPrinterTurbo offers. Unknown -> portrait."
+  [aspect]
+  (case (some-> aspect name str/lower-case)
+    ("landscape" "16:9" "horizontal") landscape
+    vertical))
 
 (defn- motion-segment-cmd
   "Animate a reviewed still with deterministic 2.5D camera motion. Keeps the
@@ -155,6 +165,23 @@
         (sh! (voice/pad-cmd (str spoken) secs (str wav)))
         (if fleet :murakumo :local)))))
 
+(defn burn-or-keep!
+  "Final pass: burn `srt` into `mix` -> `out`, or — when burning is off or
+  ffmpeg refuses (no libass) — copy `mix` to `out` unchanged. Returns the leg
+  value: :burned | :sidecar. Never throws on the burn itself: a cut with a
+  sidecar SRT is still a playable, honest result, and the legs say which."
+  [mix srt out burn?]
+  (if-not burn?
+    (do (io/copy (io/file mix) (io/file out)) :sidecar)
+    (let [{:keys [exit err]} (apply shell/sh (ff/burn-subtitles-cmd mix srt out))]
+      (if (zero? exit)
+        :burned
+        (do (binding [*out* *err*]
+              (println "[dougaka.pipeline] subtitle burn failed; keeping the un-burned cut:"
+                       (subs (str err) 0 (min 300 (count (str err))))))
+            (io/copy (io/file mix) (io/file out))
+            :sidecar)))))
+
 (defn produce!
   "Episode plan → a produced episode. opts:
     :dir        output dir (default target/dougaka/<episode-id>)
@@ -163,13 +190,17 @@
     :dims       {:width :height :fps} (default vertical 720x1280@30)
     :bed?       ask the fleet for a music bed (default true)
     :archive?   mirror every artifact to kotobase.net (default true)
+    :burn-subtitles?  burn the SRT into the picture as the last pass
+                (default true; the sidecar SRT is written either way).
+                If ffmpeg lacks libass the cut is kept un-burned and :legs
+                says :subtitles :sidecar instead of :burned.
 
   Returns {:video :srt :shots :dir :legs :artifacts}, where :legs records what
   each generative step actually did (:murakumo / :local / :placeholder / nil)
   so a caller can refuse to publish a degraded cut."
-  [plan & [{:keys [dir render-fn dims bed? archive?]
+  [plan & [{:keys [dir render-fn dims bed? archive? burn-subtitles?]
             :or {render-fn comfy/render-keyframe dims vertical
-                 bed? true archive? true}}]]
+                 bed? true archive? true burn-subtitles? true}}]]
   (let [shots (subtitle/flat-shots plan)
         _ (when (empty? shots) (throw (ex-info "plan has no shots" {:plan plan})))
         dir (io/file (or dir (str "target/dougaka/" (or (:episode-id plan) "episode"))))
@@ -231,6 +262,7 @@
         list-file (io/file dir "concat.txt")
         _ (spit list-file (ff/concat-list-text segs))
         cut (io/file dir (str (or (:episode-id plan) "episode") "-cut.mp4"))
+        mix (io/file dir (str (or (:episode-id plan) "episode") "-mix.mp4"))
         out (io/file dir (str (or (:episode-id plan) "episode") ".mp4"))
         srt (io/file dir (str (or (:episode-id plan) "episode") ".srt"))]
     (spit srt (subtitle/srt shots))
@@ -242,17 +274,21 @@
                                           :seconds (plan-duration shots)}
                                          (str f))
                     {:file (str f) :loop? true :gain bed-gain :at-sec 0})))
-          overlays (into (vec (remove nil? [bed])) (cue-overlays shots @sfx-files))]
-      (sh! (ff/audio-overlay-mix-cmd (str cut) overlays (str out)))
-      (let [artifacts (when archive?
-                        (archive/put-all!
-                         (concat [[out :mp4] [srt :srt]]
-                                 (when bed [[(:file bed) :wav]])
-                                 (map (fn [f] [f :wav]) (vals @sfx-files)))))]
-        {:video (str out) :srt (str srt) :shots (count shots) :dir (str dir)
-         :legs (assoc @legs :bed (boolean bed) :overlays (count overlays))
-         :artifacts (vec artifacts)
-         :cid (some (fn [a] (when (= (str out) (:file a)) (:cid a))) artifacts)}))))
+          overlays (into (vec (remove nil? [bed])) (cue-overlays shots @sfx-files))
+          _ (sh! (ff/audio-overlay-mix-cmd (str cut) overlays (str mix)))
+          ;; ── subtitles onto the picture (last pass, once) ──────────────
+          subtitles (burn-or-keep! (str mix) (str srt) (str out) burn-subtitles?)
+          artifacts (when archive?
+                      (archive/put-all!
+                       (concat [[out :mp4] [srt :srt]]
+                               (when bed [[(:file bed) :wav]])
+                               (map (fn [f] [f :wav]) (vals @sfx-files)))))]
+      {:video (str out) :srt (str srt) :shots (count shots) :dir (str dir)
+       :dims (select-keys dims [:width :height :fps])
+       :legs (assoc @legs :bed (boolean bed) :overlays (count overlays)
+                    :subtitles subtitles)
+       :artifacts (vec artifacts)
+       :cid (some (fn [a] (when (= (str out) (:file a)) (:cid a))) artifacts)})))
 
 (def demo-plan
   {:episode-id "demo-1"
@@ -276,6 +312,7 @@
           :srt (:srt out)
           :shots (:shots out)
           :artifacts (:artifacts out)
+          :dims (:dims out)
           :cid (:cid out)}))
 
 (defn write-legs!
@@ -287,9 +324,26 @@
     (spit f (pr-str (legs-receipt plan out)))
     (str f)))
 
+(defn parse-args
+  "[plan-path] [out-dir] [--aspect portrait|landscape] [--no-burn]
+  Positionals first, flags anywhere. DOUGAKA_ASPECT is the env fallback."
+  [args]
+  (let [flags (set (filter #(str/starts-with? % "--") args))
+        kv (->> args (partition 2 1) (filter #(= "--aspect" (first %))) first second)
+        pos (->> args
+                 (remove #(str/starts-with? % "--"))
+                 (remove #(= % kv))
+                 vec)]
+    {:plan-path (first pos)
+     :out-dir (second pos)
+     :aspect (or kv (System/getenv "DOUGAKA_ASPECT") "portrait")
+     :burn-subtitles? (not (contains? flags "--no-burn"))}))
+
 (defn -main [& args]
-  (let [plan (if (seq args) (edn/read-string (slurp (first args))) demo-plan)
-        out (produce! plan {:dir (second args)})
+  (let [{:keys [plan-path out-dir aspect burn-subtitles?]} (parse-args args)
+        plan (if plan-path (edn/read-string (slurp plan-path)) demo-plan)
+        out (produce! plan {:dir out-dir :dims (dims-for aspect)
+                            :burn-subtitles? burn-subtitles?})
         legs (write-legs! plan out)]
     (println "video :" (:video out))
     (println "srt   :" (:srt out))

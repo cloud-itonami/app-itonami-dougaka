@@ -11,7 +11,8 @@
 
   Auth: env MURAKUMO_GENERATION_TOKEN (scope `generation`). Read here, passed
   down, never logged or written to an artifact."
-  (:require [clojure.java.io :as io]
+  (:require [clojure.edn :as edn]
+            [clojure.java.io :as io]
             [clojure.string :as str]
             [jsonista.core :as j]
             [murakumo.generation :as gen]
@@ -33,6 +34,29 @@
     (when-not (str/blank? t) t)))
 
 (defn base-url [] (gen/endpoint (System/getenv "MURAKUMO_GENERATION_URL")))
+
+(defn read-generation-config
+  "resources/generation.edn, or nil when absent/unreadable (then nothing is
+  defaulted and the gateway's own 400 says so)."
+  []
+  (try (some-> (io/resource "generation.edn") slurp edn/read-string)
+       (catch Exception _ nil)))
+
+(def ^:private model-env
+  {:video "DOUGAKA_VIDEO_MODEL" :voice "DOUGAKA_VOICE_MODEL"
+   :music "DOUGAKA_MUSIC_MODEL" :sfx "DOUGAKA_SFX_MODEL"})
+
+(defn model-for
+  "The model id a leg asks the fleet for: the caller's explicit choice, else
+  the process env override, else resources/generation.edn's default, else
+  nil (and the gateway refuses with murakumo_billing_underspecified — the
+  honest outcome when nothing chose). `config` is injectable for tests."
+  ([modality explicit] (model-for modality explicit (read-generation-config)))
+  ([modality explicit config]
+   (let [e (some-> (System/getenv (model-env modality)) str/trim not-empty)]
+     (or (some-> explicit str str/trim not-empty)
+         e
+         (get-in config [modality :model])))))
 
 (defn- http ^HttpClient []
   (-> (HttpClient/newBuilder) (.connectTimeout (Duration/ofSeconds 20)) (.build)))
@@ -87,16 +111,16 @@
   "A shot's own art direction -> a real moving clip. This is what replaces the
   solid-colour placeholder: the plan's :prompt was always written for a video
   model, it just had nowhere to go."
-  [shot out] (client/video! shot (str out) (opts)))
+  [shot out] (client/video! (assoc shot :model (model-for :video (:model shot))) (str out) (opts)))
 
 (defn narration!
   "A subtitle line -> spoken audio on the fleet TTS, cast by the plan's role."
-  [line out] (client/narration! line (str out) (opts)))
+  [line out] (client/narration! (assoc line :model (model-for :voice (:model line))) (str out) (opts)))
 
 (defn music!
   "An episode-level mood line -> a bed for the whole cut."
-  [m out] (client/music! m (str out) (opts)))
+  [m out] (client/music! (assoc m :model (model-for :music (:model m))) (str out) (opts)))
 
 (defn sfx!
   "A cue description -> a one-shot effect."
-  [c out] (client/sfx! c (str out) (opts)))
+  [c out] (client/sfx! (assoc c :model (model-for :sfx (:model c))) (str out) (opts)))

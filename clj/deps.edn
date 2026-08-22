@@ -4,7 +4,7 @@
         ;; douga craft lib (ADR-2607023000) — the timeline→ffmpeg render-plan
         ;; pure functions split out of this repo's old dougaka.ffmpeg-plan.
         io.github.kotoba-lang/douga {:git/url "https://github.com/kotoba-lang/douga"
-                                     :git/sha "b957073d095c5cf96ab7465ad261cbc20eba924d"}
+                                     :git/sha "5a1e9ac15a4c370da12c3f8aad75021e8535c8fe"}
         ;; keyframe generation (ADR-2607071500) — the shared ComfyUI gateway
         ;; (config-map instance pattern, ADR-2607011900 correction); its JVM
         ;; branch uses the http-kit/jsonista this deps.edn already declares.
