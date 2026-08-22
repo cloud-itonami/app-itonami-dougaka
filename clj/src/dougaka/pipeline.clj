@@ -263,12 +263,38 @@
             {:seq 1 :setting "夜道"
              :shots [{:seq 0 :prompt "vertical anime, walking under street lights" :duration 4 :subtitle "たまには、いいか"}]}]})
 
+(defn legs-receipt
+  "The producer's own report of what each generative leg actually did, in the
+  shape `loop-ka-production` grades (`record --legs <file>` reads the map as
+  the legs map itself: :video / :voice / :bed / :sfx / :overlays, plus the
+  :artifacts it carries into the ledger). Identity and outputs ride along so a
+  reader can go from a verdict back to the file it judged."
+  [plan out]
+  (merge (:legs out)
+         {:episode-id (:episode-id plan)
+          :mp4 (:video out)
+          :srt (:srt out)
+          :shots (:shots out)
+          :artifacts (:artifacts out)
+          :cid (:cid out)}))
+
+(defn write-legs!
+  "Write `<dir>/legs.edn` and return its path. Written AFTER the mp4 exists, so
+  a legs file is evidence that a cut was encoded — the loop reads this file,
+  not stdout, because stdout is what two weeks of flat cards were judged by."
+  [plan out]
+  (let [f (io/file (:dir out) "legs.edn")]
+    (spit f (pr-str (legs-receipt plan out)))
+    (str f)))
+
 (defn -main [& args]
   (let [plan (if (seq args) (edn/read-string (slurp (first args))) demo-plan)
-        out (produce! plan {:dir (second args)})]
+        out (produce! plan {:dir (second args)})
+        legs (write-legs! plan out)]
     (println "video :" (:video out))
     (println "srt   :" (:srt out))
     (println "shots :" (:shots out))
+    (println "legs  :" legs)
     (let [probe (shell/sh "ffprobe" "-v" "error" "-show_entries"
                           "format=duration:stream=codec_name,width,height"
                           "-of" "default=nw=1" (:video out))]
