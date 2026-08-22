@@ -32,15 +32,21 @@ neither repo currently says which host resolves to which. Check
 clj/src/dougaka/server.cljc          HTTP surface (reitit-ring + http-kit), EDN or JSON
 clj/src/dougaka/graphs/registry.cljc nsid → graph handler table
 clj/src/dougaka/graphs/render.cljc   render graph — timeline → ffmpeg render plan (plans only)
-clj/src/dougaka/pipeline.clj         offline executor — episode plan → real mp4 + SRT (runs ffmpeg)
+clj/src/dougaka/pipeline.clj         offline executor — episode plan → real mp4 + SRT + legs.edn (runs ffmpeg)
 clj/src/dougaka/comfy.cljc           keyframes via the shared ComfyUI gateway (degrades to a placeholder)
 clj/src/dougaka/murakumo.clj         murakumo fleet generation: video / voice / music / sfx
 clj/src/dougaka/voice.clj            narration: VOICEVOX → macOS `say` → silence
 clj/src/dougaka/subtitle.cljc        sidecar SRT from a flat shot list (pure)
 clj/src/dougaka/kotobase.cljc        pure raw-CIDv1 content addressing
 clj/src/dougaka/archive.clj          kotobase.net archive I/O (mirror, never a gate)
-clj/test/                            6 test namespaces — 24 tests / 85 assertions
+clj/test/                            7 test namespaces — 25 tests / 96 assertions
 ```
+
+`legs.edn` (written next to the mp4, 2026-08-22) is the producer's own report of
+what each generative step did — per-shot `:murakumo` / `:comfy` / `:placeholder`
+for the image, `:murakumo` / `:local` / `:silent` for the voice, bed, cues — in
+the shape `kotoba-lang/loop-ka-production` grades with `record --legs`. The
+loop reads that file, not stdout; a cut of flat cards still prints `video :`.
 
 **The two legs are deliberately different.** The server *plans* and never
 encodes; `dougaka.pipeline` is the explicit offline encode leg where ffmpeg
