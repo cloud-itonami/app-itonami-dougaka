@@ -1,0 +1,19 @@
+{
+  "name": "itonami-dougaka",
+  "main": "js/worker.mjs",
+  "compatibility_date": "2026-08-12",
+  // The origin the actor's pricing.edn :discovery-document gate asks for.
+  // gftd.ai is being pruned (owner 2026-09-01); the route it replaces answered
+  // 000 with nothing deployed behind it.
+  "routes": [
+    { "pattern": "dougaka.itonami.cloud", "custom_domain": true }
+  ],
+  // The Kotoba guest arrives as a module import — Workers refuse
+  // WebAssembly.compile at runtime (amu's browser host documents this,
+  // measured against a deployed Worker 2026-08-31). No "rules" entry is
+  // needed or wanted: wrangler already maps **/*.wasm to CompiledWasm, and
+  // declaring the same type again SHADOWS the built-in rather than adding to
+  // it — the build fails with "ignored because a previous rule with the same
+  // type was not marked as fallthrough".
+  "observability": { "enabled": true }
+}
