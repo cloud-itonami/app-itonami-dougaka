@@ -1,0 +1,14 @@
+{
+  "name": "dougaka-edge",
+  "private": true,
+  "scripts": {
+    "offer": "nbb scripts/gen_offer.cljs --pricing ../../ai-gftd-dougaka-actor/pricing.edn",
+    "offer:check": "nbb scripts/gen_offer.cljs --pricing ../../ai-gftd-dougaka-actor/pricing.edn --check",
+    "build": "shadow-cljs release worker",
+    "deploy": "npm run build && wrangler deploy"
+  },
+  "devDependencies": {
+    "shadow-cljs": "2.28.20",
+    "wrangler": "^4"
+  }
+}

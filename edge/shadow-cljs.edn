@@ -1,0 +1,14 @@
+;; dougaka の公開 edge。`douga.ffmpeg` を **そのまま** require するために
+;; ClojureScript でビルドする —— render plan の実装を JS に書き直すと、
+;; 同じ計算が 2 か所に存在することになり、片方だけ直る日が来る。
+;;
+;; `build-render-plan` が cljs で動くことは実測した: reader conditional は
+;; 1 か所で、それも `(catch #?(:clj Exception :cljs :default) …)` と既に
+;; cljs を持っている。純関数（timeline → plan）なので Worker で完結する。
+{:deps   {:aliases [:cljs]}
+ :builds {:worker
+          {:target     :esm
+           :output-dir "js"
+           :modules    {:dougaka-worker
+                        {:exports {default dougaka.edge/app}}}
+           :compiler-options {:output-feature-set :es2020 :infer-externs :auto}}}}
