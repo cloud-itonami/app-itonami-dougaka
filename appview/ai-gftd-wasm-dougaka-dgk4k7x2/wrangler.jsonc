@@ -22,8 +22,13 @@
   "secrets_store_secrets": [
     { "binding": "DISPATCHER_INTERNAL_SECRET", "store_id": "1824561668fe47cc9127d493961885af", "secret_name": "dispatcher_internal_secret" }
   ],
+  // gftd.ai is being pruned (root ADR-2608312300 D3: no new gftd names, and the
+  // route below was DEAD — dougaka.gftd.ai answered 000 on 2026-09-01, no DNS
+  // and nothing deployed, and this worker's own `main` points at a src/app.cljc
+  // that does not exist. Renaming a dead route is not the guarded case that ADR
+  // warns about; renaming a live cookie name, secret binding or serving host is,
+  // and none of those are here.
   "routes": [
-    { "pattern": "dgk4k7x2.gftd.ai/*", "zone_name": "gftd.ai" },
-    { "pattern": "dougaka.gftd.ai/*", "zone_name": "gftd.ai" }
+    { "pattern": "dougaka.itonami.cloud/*", "zone_name": "itonami.cloud" }
   ]
 }

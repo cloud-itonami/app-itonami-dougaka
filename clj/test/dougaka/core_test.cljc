@@ -35,9 +35,9 @@
 
 (deftest registry-surface
   (let [r (reg/build)]
-    (is (= #{"ai.gftd.apps.dougaka.health" "ai.gftd.apps.dougaka.render"} (set (keys r))))
+    (is (= #{"cloud.itonami.apps.dougaka.health" "cloud.itonami.apps.dougaka.render"} (set (keys r))))
     (is (reg/resolve-entry r "render"))
-    (is (reg/resolve-entry r "ai.gftd.apps.dougaka.render"))
+    (is (reg/resolve-entry r "cloud.itonami.apps.dougaka.render"))
     (is (= ["health" "render"]
            (:graphs ((:handler (reg/resolve-entry r "health")) {} nil))))))
 

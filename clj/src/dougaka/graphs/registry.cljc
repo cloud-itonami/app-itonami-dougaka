@@ -3,12 +3,12 @@
 
 (defn build []
   (let [render-g (render/make)]
-    {"ai.gftd.apps.dougaka.health"
+    {"cloud.itonami.apps.dougaka.health"
      {:assistant :health
-      :handler (fn [_ _] {:ok true :status "ok" :app "dougaka.gftd.ai" :impl "clj"
+      :handler (fn [_ _] {:ok true :status "ok" :app "dougaka.itonami.cloud" :impl "clj"
                           :graphs ["health" "render"]})}
 
-     "ai.gftd.apps.dougaka.render"
+     "cloud.itonami.apps.dougaka.render"
      {:assistant :render :handler (render/handler render-g)}}))
 
 (defn nsids [registry] (vec (sort (keys registry))))
