@@ -40,3 +40,10 @@ test-results/
 
 # Clojure CLI classpath cache — machine-specific absolute paths, never shared
 .cpcache/
+
+# Test artifacts. `clj/target/test-burn-*` is written by
+# dougaka.pipeline-test on every run — mp4/wav/png that describe one machine
+# on one day. Two such directories were committed by accident on 2026-09-01
+# (a `git add -A` after running the suite) and one predates that; this stops
+# the next run adding a third.
+clj/target/

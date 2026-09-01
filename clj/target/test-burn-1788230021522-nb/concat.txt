@@ -1,2 +1,0 @@
-file 'seg_00000.mp4'
-file 'seg_00001.mp4'
