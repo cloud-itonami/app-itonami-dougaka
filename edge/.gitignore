@@ -1,0 +1,6 @@
+node_modules/
+# amu's browser host, copied in by `npm run host`. NOT vendored: it is 146 KB
+# of someone else's runtime and a checked-in copy would go stale silently, the
+# way every vendored copy in this workspace has. The build fetches it from the
+# west checkout, so the version deployed is the version that repo has.
+js/browser-host.mjs

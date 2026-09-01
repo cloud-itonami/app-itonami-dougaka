@@ -33,9 +33,14 @@
 (defn- request-shaped-plans
   "x402 v1 は request を proxy して応答を待つ。job 形の plan をここに載せると、
    買い手が払ってから『レンダリングは別경로です』と知ることになる。
-   `:plan/request-shaped? true` を持つものだけを document に出す。"
+   `:plan/request-shaped? true` を持つものだけを document に出す。
+
+   そして `:plan/served? true` も要る。**serve していないものを広告しない** ——
+   murakumo は 2026-07-31 に広告した path を answer できず、買い手が払って
+   検証も通ってから upstream が無いと返した。値段が付いていることと、
+   origin が答えられることは別である。"
   [book]
-  (filter :plan/request-shaped? (:pricing/plans book)))
+  (filter #(and (:plan/request-shaped? %) (:plan/served? %)) (:pricing/plans book)))
 
 (defn document [book sha]
   (let [plans (request-shaped-plans book)]

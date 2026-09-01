@@ -1,14 +1,14 @@
 {
   "name": "dougaka-edge",
   "private": true,
+  "type": "module",
   "scripts": {
-    "offer": "nbb scripts/gen_offer.cljs --pricing ../../ai-gftd-dougaka-actor/pricing.edn",
+    "offer": "nbb scripts/gen_offer.cljs --pricing ../../ai-gftd-dougaka-actor/pricing.edn --kotoba",
     "offer:check": "nbb scripts/gen_offer.cljs --pricing ../../ai-gftd-dougaka-actor/pricing.edn --check",
-    "build": "shadow-cljs release worker",
-    "deploy": "npm run build && wrangler deploy"
+    "compile": "amu compile kotoba/offer.kotoba --unpinned --target wasm32-browser --output js/offer.wasm",
+    "host": "cp ../../../kotoba-lang/amu/runtime/browser-host.mjs js/browser-host.mjs",
+    "build": "npm run offer && npm run compile && npm run host",
+    "deploy": "wrangler deploy"
   },
-  "devDependencies": {
-    "shadow-cljs": "2.28.20",
-    "wrangler": "^4"
-  }
+  "devDependencies": { "wrangler": "^4" }
 }
