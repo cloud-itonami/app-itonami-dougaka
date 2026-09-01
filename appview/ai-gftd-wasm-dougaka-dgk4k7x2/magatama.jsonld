@@ -1,6 +1,6 @@
 {
   "@context": "https://gftd.ai/ns/magatama/v1",
-  "@id": "did:web:dougaka.gftd.ai",
+  "@id": "did:web:dougaka.itonami.cloud",
   "component": { "env": {}, "path": "src/app.cljc" },
   "deploy": {},
   "name": "ai-gftd-wasm-dougaka",
@@ -14,7 +14,7 @@
     "isBot": true
   },
   "project": "dougaka",
-  "routes": [{ "host": "dougaka.gftd.ai", "paths": ["/"], "tls": true }],
+  "routes": [{ "host": "dougaka.itonami.cloud", "paths": ["/"], "tls": true }],
   "runtimeType": "worker",
   "build": { "guestLanguage": "ts", "role": "thin-edge" },
   "uiType": "appview"
