@@ -12,13 +12,9 @@
 
   JVM-only I/O (JDK HttpClient — no extra deps), mirrors the repo convention
   (.clj for host I/O, .cljc for pure logic)."
-  (:require [clojure.java.io :as io]
-            [clojure.java.shell :as shell]
-            [clojure.string :as str])
-  (:import [java.net URI URLEncoder]
-           [java.net.http HttpClient HttpRequest HttpRequest$BodyPublishers
-            HttpResponse$BodyHandlers]
-           [java.nio.charset StandardCharsets]))
+  (:require [clojure.string :as str]
+            [kotoba.util :as kutil]
+            [kotoba.net :as knet]))
 
 (def default-voicevox-url
   (or (System/getenv "VOICEVOX_URL") "http://127.0.0.1:50021"))
@@ -55,7 +51,7 @@
     (keyword? speaker) (get speaker-map speaker default-speaker)
     :else default-speaker))
 
-(defn- url-encode [s] (URLEncoder/encode (str s) StandardCharsets/UTF_8))
+(defn- url-encode [s] (knet/url-encode s "UTF-8"))
 
 (defn audio-query-url [base text speaker]
   (str base "/audio_query?text=" (url-encode text) "&speaker=" speaker))
@@ -65,15 +61,8 @@
 
 (defn- http-post-bytes
   "POST → {:status :bytes} (byte-array body)."
-  [url {:keys [body content-type]}]
-  (let [b (-> (HttpRequest/newBuilder (URI/create url))
-              (.timeout (java.time.Duration/ofSeconds 30)))
-        b (if content-type (.header b "Content-Type" content-type) b)
-        req (.build (.method b "POST" (if body
-                                        (HttpRequest$BodyPublishers/ofString body)
-                                        (HttpRequest$BodyPublishers/noBody))))
-        resp (.send (HttpClient/newHttpClient) req (HttpResponse$BodyHandlers/ofByteArray))]
-    {:status (.statusCode resp) :bytes (.body resp)}))
+  [url opts]
+  (knet/http-post url opts))
 
 (defn voicevox-synth!
   "text → wav bytes via a VOICEVOX engine, or nil on any failure (engine
@@ -84,7 +73,7 @@
     (let [q (http-post-bytes (audio-query-url base text speaker) {})]
       (when (= 200 (:status q))
         (let [s (http-post-bytes (synthesis-url base speaker)
-                                 {:body (String. ^bytes (:bytes q) StandardCharsets/UTF_8)
+                                 {:body (String. ^bytes (:bytes q) "UTF-8")
                                   :content-type "application/json"})]
           (when (= 200 (:status s)) (:bytes s)))))
     (catch Exception _ nil)))
@@ -98,7 +87,7 @@
       (when (zero? (:exit r1))
         (let [r2 (shell/sh "ffmpeg" "-y" "-loglevel" "error" "-i" aiff
                            "-ar" "24000" "-ac" "1" out)]
-          (io/delete-file aiff true)
+          (kutil/delete-file aiff true)
           (when (zero? (:exit r2)) out))))
     (catch Exception _ nil)))
 
@@ -110,7 +99,7 @@
   (when (and text (seq (str/trim text)))
     (let [opts (assoc opts :speaker (speaker-id speaker))]
       (or (when-let [^bytes wav (voicevox-synth! opts)]
-            (with-open [o (io/output-stream out)] (.write o wav))
+            (with-open [o (kutil/output-stream out)] (.write o wav))
             out)
           (say-synth! opts)))))
 
