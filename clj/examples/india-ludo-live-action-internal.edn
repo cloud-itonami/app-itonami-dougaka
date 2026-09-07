@@ -1,0 +1,37 @@
+{:episode-id "india-ludo-live-action-internal-motion-v2"
+ :title "Four Kingdoms: The Last Commute"
+ :distribution :internal-demo-only
+ :rights {:mode :original-homage
+          :publish-approved? false
+          :notes "No third-party logos, names, characters, music, or copied board layout."}
+ :scenes
+ [{:seq 0
+   :setting "A fictional Indian railway terminus becomes a four-colour arena"
+   :shots
+   [{:seq 0
+     :image-path "examples/assets/india-ludo-live-action-internal-v1.png"
+     :prompt "vertical live-action establishing shot, four original commuter kingdoms at a railway arena"
+     :duration 3.0
+     :motion :push-in
+     :voice? false
+     :subtitle "LAST TRAIN. FOUR KINGDOMS."
+     :speaker nil}
+    {:seq 1
+     :image-path "examples/assets/india-ludo-live-action-internal-v1.png"
+     :prompt "four colourful auto-rickshaw-inspired game vehicles ready to race"
+     :duration 3.0
+     :motion :pan-right
+     :voice? false
+     :subtitle "ONE MOVE CHANGES EVERYTHING."
+     :speaker nil}]}
+  {:seq 1
+   :setting "The final square"
+   :shots
+   [{:seq 0
+     :image-path "examples/assets/india-ludo-live-action-internal-v1.png"
+     :prompt "cinematic final reveal of the four-colour arena"
+     :duration 3.0
+     :motion :pull-back
+     :voice? false
+     :subtitle "WHO GETS HOME FIRST?"
+     :speaker nil}]}]}

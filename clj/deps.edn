@@ -4,11 +4,18 @@
         ;; douga craft lib (ADR-2607023000) — the timeline→ffmpeg render-plan
         ;; pure functions split out of this repo's old dougaka.ffmpeg-plan.
         io.github.kotoba-lang/douga {:git/url "https://github.com/kotoba-lang/douga"
-                                     :git/sha "8a40c0a86ae51bca71bf5604782a1b165cd6e1d3"}
+                                     :git/sha "5a1e9ac15a4c370da12c3f8aad75021e8535c8fe"}
         ;; keyframe generation (ADR-2607071500) — the shared ComfyUI gateway
         ;; (config-map instance pattern, ADR-2607011900 correction); its JVM
         ;; branch uses the http-kit/jsonista this deps.edn already declares.
         io.github.kotoba-lang/comfyui {:git/sha "4ef264754b8531acbf1f44e2015ec9f0f9b04486"}
+        ;; shared murakumo generation client (ADR-2607299960 follow-up) — the
+        ;; API's real host, geometry/frame ranges, artifact-URL rebasing,
+        ;; digest verification and cold-start retry live there so every -ka
+        ;; repo gets them instead of relearning each one from a 400.
+        io.github.kotoba-lang/murakumo-generation
+        {:git/url "https://github.com/kotoba-lang/murakumo-generation"
+         :git/sha "ce6e673ac7317befdcef767d1e9da3754bc28ba4"}
         http-kit/http-kit   {:mvn/version "2.8.0"}
         metosin/reitit-ring {:mvn/version "0.7.2"}
         ring/ring-core      {:mvn/version "1.12.2"}
@@ -19,7 +26,7 @@
   :dev
   {:override-deps
    {io.github.kotoba-lang/douga {:local/root "../../../kotoba-lang/douga"}
-    io.github.kotoba-lang/comfyui {:local/root "../../../kotoba-lang/comfyui"}}}
+    io.github.kotoba-lang/comfyui {:local/root "/Users/junkawasaki/github/com-junkawasaki/orgs/kotoba-lang/comfyui"}}}
 
   :run
   {:main-opts ["-m" "dougaka.server"]}

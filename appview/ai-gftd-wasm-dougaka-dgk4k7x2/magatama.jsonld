@@ -1,6 +1,6 @@
 {
   "@context": "https://gftd.ai/ns/magatama/v1",
-  "@id": "did:web:dougaka.gftd.ai",
+  "@id": "did:web:dougaka.itonami.cloud",
   "component": { "env": {}, "path": "src/app.cljc" },
   "deploy": {},
   "name": "ai-gftd-wasm-dougaka",
@@ -9,12 +9,12 @@
   "profile": {
     "agentType": "reactive",
     "capabilities": ["edge-assets", "bpmn-dispatch"],
-    "description": "UI-less video-render backend generation actor (invoked pod-to-pod by lg-shinshi). Render log persists to Cloudflare D1 (ai-gftd-dougaka); mp4 to B2.",
+    "description": "UI-less video-render backend generation actor invoked pod-to-pod by lg-shinshi. Production artifacts persist in the kotobase.net content-addressed archive.",
     "displayName": "Dougaka",
     "isBot": true
   },
   "project": "dougaka",
-  "routes": [{ "host": "dougaka.gftd.ai", "paths": ["/"], "tls": true }],
+  "routes": [{ "host": "dougaka.itonami.cloud", "paths": ["/"], "tls": true }],
   "runtimeType": "worker",
   "build": { "guestLanguage": "ts", "role": "thin-edge" },
   "uiType": "appview"

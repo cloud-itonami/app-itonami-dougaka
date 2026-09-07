@@ -28,7 +28,7 @@
                   :scenes [{:index 0}]
                   :assets [{:kind "scene" :blobKey "frame" :meta {:sceneIndex 0}}]}
         runs (req :post "/runs" {:assistant_id "render" :input {:timeline timeline}})
-        xrpc (req :post "/xrpc/ai.gftd.apps.dougaka.render" timeline)]
+        xrpc (req :post "/xrpc/cloud.itonami.apps.dougaka.render" timeline)]
     (is (= 200 (:status runs)))
     (is (= "planned" (:status (json-body runs))))
     (is (= 1 (:segmentCount (json-body runs))))
@@ -37,4 +37,4 @@
 
 (deftest unknowns-404
   (is (= 404 (:status (req :post "/runs" {:assistant_id "nope" :input {}}))))
-  (is (= 404 (:status (req :post "/xrpc/ai.gftd.apps.dougaka.unknownMethod" {})))))
+  (is (= 404 (:status (req :post "/xrpc/cloud.itonami.apps.dougaka.unknownMethod" {})))))

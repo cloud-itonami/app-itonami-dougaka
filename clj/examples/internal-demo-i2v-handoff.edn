@@ -1,0 +1,79 @@
+{:handoff/version 1
+ :handoff/updated-at "2026-07-18T21:30:00+09:00"
+ :handoff/status :blocked
+ :handoff/blocker :generation-token-issuance
+ :handoff/summary "Four original live-action internal demos have keyframes and 2.5D motion-v2 MP4s. True I2V has not been submitted. Resume at token issuance, then submit LTX-2.3 jobs serially."
+
+ :runtime {:generation-api "https://api.murakumo.cloud"
+           :model "ltx-2.3"
+           :duration-ms 4000
+           :submit-contract "animeka.murakumo-video/request-body"
+           :poll-contract "persist jobId before polling; resume queued/running; resubmit only after 404/410"
+           :token {:subject "dougaka-internal-demo"
+                   :scope "generation"
+                   :ttl-seconds 7776000
+                   :value-stored? false
+                   :never-persist-value? true}}
+
+ :storage {:dataset "/Users/junkawasaki/github/com-junkawasaki/orgs/gftdcojp/gftd-motion-actor"
+           :relative-dir "assets/dougaka/internal-demos"
+           :i2v-relative-dir "assets/dougaka/internal-demos/i2v"
+           :annex-local-uuid "30a27285-055f-459c-a317-d3d95a65716d"
+           :b2-remote-enabled? false}
+
+ :works
+ [{:work/id :india-ludo
+   :title "Four Kingdoms: The Last Commute"
+   :distribution :internal-demo-only
+   :keyframe "examples/assets/india-ludo-live-action-internal-v1.png"
+   :plan "examples/india-ludo-live-action-internal.edn"
+   :camera-motion-mp4 "india-ludo-live-action-internal-motion-v2.mp4"
+   :i2v/prompt "Four original color-coded commuter teams spring into action in a fictional Indian railway arena; auto-rickshaw-inspired vehicles accelerate gently, fabric and station banners move in the air, cinematic realistic motion, family friendly, preserve faces and composition."
+   :i2v/job-id nil
+   :i2v/status :not-submitted}
+
+  {:work/id :three-kingdoms-red-cliffs
+   :title "Red Cliffs: Before the Wind Turns"
+   :distribution :internal-demo-only
+   :keyframe "examples/assets/three-kingdoms-red-cliffs-internal-v1.png"
+   :plan "examples/three-kingdoms-red-cliffs-internal.edn"
+   :camera-motion-mp4 "three-kingdoms-red-cliffs-internal-motion-v2.mp4"
+   :i2v/prompt "On the ancient river at night, lanterns flicker across a vast wooden fleet, sails and banners begin moving as the wind changes, commanders react subtly, water and mist flow naturally, restrained historical cinema, no combat or fire yet."
+   :i2v/job-id nil
+   :i2v/status :not-submitted}
+
+  {:work/id :shiji-hong-gate
+   :title "The Banquet at Hong Gate"
+   :distribution :internal-demo-only
+   :keyframe "examples/assets/shiji-hong-gate-internal-v1.png"
+   :plan "examples/shiji-hong-gate-internal.edn"
+   :camera-motion-mp4 "shiji-hong-gate-internal-motion-v2.mp4"
+   :i2v/prompt "At a tense ancient banquet, the sword dancer advances with controlled realistic movement while rival leaders exchange guarded glances, rain falls beyond the tent and lamp flames tremble, subtle prestige historical thriller motion, no stabbing or gore."
+   :i2v/job-id nil
+   :i2v/status :not-submitted}
+
+  {:work/id :mahabharata-before-battle
+   :title "Before Kurukshetra"
+   :distribution :internal-demo-only
+   :cultural-review-required? true
+   :keyframe "examples/assets/mahabharata-before-battle-internal-v1.png"
+   :plan "examples/mahabharata-before-battle-internal.edn"
+   :camera-motion-mp4 "mahabharata-before-battle-internal-motion-v2.mp4"
+   :i2v/prompt "At quiet dawn before battle, a conflicted warrior slowly lowers his bow while a dignified charioteer counsels him with a gentle hand gesture; distant banners and dust move softly, solemn compassionate historical epic, no active violence or supernatural spectacle."
+   :i2v/job-id nil
+   :i2v/status :not-submitted}]
+
+ :resume
+ [{:step 1 :action :unlock-secret-store :done? false}
+  {:step 2 :action :issue-generation-token :done? false}
+  {:step 3 :action :create-private-fetchable-keyframe-urls :done? false}
+  {:step 4 :action :submit-jobs-serially :done? false}
+  {:step 5 :action :download-artifacts-to-datalad :done? false}
+  {:step 6 :action :score-temporal-motion :done? false}
+  {:step 7 :action :assemble-i2v-demo :done? false}]
+
+ :evidence {:i2v/jobs-submitted 0
+            :token-issued? false
+            :op-signin-attempts :authorization-timeout
+            :kagi-get-attempt :timeout
+            :secrets-written-to-files? false}}

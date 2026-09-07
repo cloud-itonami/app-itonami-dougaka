@@ -58,7 +58,7 @@
     {:ok false :status 404 :error (str "unknown graph/nsid: " ident)}))
 
 (defn- health-handler [req]
-  (data-resp req {:ok true :status "ok" :app "dougaka.gftd.ai" :impl "clj"
+  (data-resp req {:ok true :status "ok" :app "dougaka.itonami.cloud" :impl "clj"
                   :graphs ["health" "render"]
                   :nsids (reg/nsids @registry)}))
 
@@ -100,7 +100,7 @@
   ([] (start! (Integer/parseInt (or (System/getenv "PORT") "8000"))))
   ([port]
    (reset! server (hk/run-server app {:port port :legacy-return-value? false}))
-   (println (str "dougaka.gftd.ai (clj) listening on :" port))
+   (println (str "dougaka.itonami.cloud (clj) listening on :" port))
    @server))
 
 (defn stop! []
