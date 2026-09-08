@@ -12,7 +12,7 @@
 
   JVM-only I/O (JDK HttpClient — no extra deps), mirrors the repo convention
   (.clj for host I/O, .cljc for pure logic)."
-  (:require [clojure.string :as str]
+  (:require [kotoba.lang.text :as str]
             [kotoba.util :as kutil]
             [kotoba.net :as knet]))
 

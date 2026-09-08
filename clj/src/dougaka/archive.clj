@@ -16,7 +16,7 @@
   with a warning and the production continues; storage is a mirror, never a
   gate on shipping the episode."
   (:require [clojure.java.io :as io]
-            [clojure.string :as str]
+            [kotoba.lang.text :as str]
             [dougaka.kotobase :as kb])
   (:import [java.net URI]
            [java.net.http HttpClient HttpRequest HttpRequest$BodyPublishers

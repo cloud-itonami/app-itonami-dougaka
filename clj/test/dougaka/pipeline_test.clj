@@ -8,7 +8,7 @@
   suite there would be the silence this workspace keeps finding."
   (:require [clojure.java.io :as io]
             [clojure.java.shell :as shell]
-            [clojure.string :as str]
+            [kotoba.lang.text :as str]
             [clojure.test :refer [deftest is testing]]
             [dougaka.murakumo :as murakumo]
             [dougaka.pipeline :as pipeline]))
