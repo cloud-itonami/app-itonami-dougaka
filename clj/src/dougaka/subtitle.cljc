@@ -1,7 +1,7 @@
 (ns dougaka.subtitle
   "Sidecar SRT from a flat shot list (pure — cumulative shot durations).
   Burning-in is a follow-up alongside img2vid (ADR-2607071500)."
-  (:require [clojure.string :as str]))
+  (:require [kotoba.lang.text :as str]))
 
 (defn flat-shots
   "Episode plan {:scenes [{:shots [...]}]} → flat shot vector (minidrama

@@ -1,5 +1,5 @@
 (ns dougaka.kotobase-test
-  (:require [clojure.string :as str]
+  (:require [kotoba.lang.text :as str]
             [clojure.test :refer [deftest is testing]]
             [dougaka.kotobase :as kb])
   (:import [java.security MessageDigest]))

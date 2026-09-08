@@ -15,7 +15,7 @@
   Usage: clojure -M:dev -m dougaka.pipeline               ; 3-shot demo plan
          clojure -M:dev -m dougaka.pipeline <plan.edn> [out-dir]"
   (:require [clojure.edn :as edn]
-            [clojure.string :as str]
+            [kotoba.lang.text :as str]
             [douga.ffmpeg :as ff]
             [dougaka.comfy :as comfy]
             [dougaka.subtitle :as subtitle]

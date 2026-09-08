@@ -11,7 +11,7 @@
   0x01 0x55 0x12 0x20 ++ digest. That is exactly what the archive endpoint
   re-derives and checks, so a wrong CID here fails closed at the server (422)
   rather than storing mislabelled bytes."
-  (:require [clojure.string :as str]
+  (:require [kotoba.lang.text :as str]
             [murakumo.generation.digest :as digest]))
 
 ;; The CID math is shared with the generation client on purpose: murakumo

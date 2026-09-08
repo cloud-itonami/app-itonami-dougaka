@@ -13,7 +13,7 @@
   down, never logged or written to an artifact."
   (:require [clojure.edn :as edn]
             [clojure.java.io :as io]
-            [clojure.string :as str]
+            [kotoba.lang.text :as str]
             [jsonista.core :as j]
             [murakumo.generation :as gen]
             [murakumo.generation.client :as client])
