@@ -8,7 +8,7 @@
     - x-internal-trust header set only when BPMN_DISPATCHER_INTERNAL_SECRET is present
     - any failure is non-fatal (logged, swallowed)"
   (:require [cheshire.core :as json]
-            [clojure.string :as str]))
+            [kotoba.lang.text :as str]))
 
 (def default-config
   "Defaults merged under any caller-supplied `:host-config`.

@@ -15,7 +15,7 @@
             [lg-dougaka.graphs.render :as render]
             [langgraph.graph :as g]
             [cheshire.core :as json]
-            [clojure.string :as str]))
+            [kotoba.lang.text :as str]))
 
 ;; GRAPHS / NSID_MAP keyed on strings to match the wire (assistant_id / nsid).
 (def GRAPHS
