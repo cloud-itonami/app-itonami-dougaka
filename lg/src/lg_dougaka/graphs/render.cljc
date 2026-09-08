@@ -25,7 +25,7 @@
       by rebinding the vars (or via env when the SDK is reachable)."
   (:require [langgraph.graph :as g]
             [lg-dougaka.audit :as audit]
-            [clojure.string :as str]))
+            [kotoba.lang.text :as str]))
 
 (defn- truncate [s n] (subs s 0 (min n (count s))))
 
