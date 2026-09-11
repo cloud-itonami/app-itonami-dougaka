@@ -29,17 +29,17 @@ neither repo currently says which host resolves to which. Check
 ## What is actually in here
 
 ```
-clj/src/dougaka/server.cljc          HTTP surface (reitit-ring + http-kit), EDN or JSON
-clj/src/dougaka/graphs/registry.cljc nsid → graph handler table
-clj/src/dougaka/graphs/render.cljc   render graph — timeline → ffmpeg render plan (plans only)
-clj/src/dougaka/pipeline.clj         offline executor — episode plan → real mp4 (subtitles burned in) + SRT + legs.edn (runs ffmpeg)
+clj/src/dougaka/server.cljk          HTTP surface (reitit-ring + http-kit), EDN or JSON
+clj/src/dougaka/graphs/registry.cljk nsid → graph handler table
+clj/src/dougaka/graphs/render.cljk   render graph — timeline → ffmpeg render plan (plans only)
+clj/src/dougaka/pipeline.cljk         offline executor — episode plan → real mp4 (subtitles burned in) + SRT + legs.edn (runs ffmpeg)
 clj/resources/generation.edn         which fleet model each leg asks for (catalog defaults + their :status)
-clj/src/dougaka/comfy.cljc           keyframes via the shared ComfyUI gateway (degrades to a placeholder)
-clj/src/dougaka/murakumo.clj         murakumo fleet generation: video / voice / music / sfx
-clj/src/dougaka/voice.clj            narration: VOICEVOX → macOS `say` → silence
-clj/src/dougaka/subtitle.cljc        sidecar SRT from a flat shot list (pure)
-clj/src/dougaka/kotobase.cljc        pure raw-CIDv1 content addressing
-clj/src/dougaka/archive.clj          kotobase.net archive I/O (mirror, never a gate)
+clj/src/dougaka/comfy.cljk           keyframes via the shared ComfyUI gateway (degrades to a placeholder)
+clj/src/dougaka/murakumo.cljk         murakumo fleet generation: video / voice / music / sfx
+clj/src/dougaka/voice.cljk            narration: VOICEVOX → macOS `say` → silence
+clj/src/dougaka/subtitle.cljk        sidecar SRT from a flat shot list (pure)
+clj/src/dougaka/kotobase.cljk        pure raw-CIDv1 content addressing
+clj/src/dougaka/archive.cljk          kotobase.net archive I/O (mirror, never a gate)
 clj/test/                            7 test namespaces — 29 tests / 130 assertions (one runs ffmpeg)
 ```
 
