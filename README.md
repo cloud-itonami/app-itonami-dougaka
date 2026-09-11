@@ -88,7 +88,7 @@ tree and its output recorded, including the things that do not work.
   `./svelte/build`; neither exists in this repo — the appview directory holds
   exactly two files, that config and `magatama.jsonld`.
 - **The `:dev` alias is not portable.** `clj/README.md` documents
-  `clojure -M:dev -m dougaka.pipeline`, but `:dev` overrides `douga` with the
+  `kbb -M:dev -m dougaka.pipeline`, but `:dev` overrides `douga` with the
   relative `../../../kotoba-lang/douga` (resolves only inside the west
   checkout) and `comfyui` with an absolute path under one developer's home.
   Outside that layout it fails at classpath build. Use the plain form — see

@@ -1,4 +1,4 @@
-#!/usr/bin/env bb
+#!/usr/bin/env kbb
 ;; edn-datomize.bb — EDN → Datomic/Datascript tx-data 変換ツール。
 ;; (copied from com-junkawasaki/root manifest/edn-datomize.bb for
 ;;  gftdcojp/ai-gftd-dougaka's own Phase 3 EDN-datomize fanout; schema-path

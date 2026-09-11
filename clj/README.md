@@ -13,11 +13,11 @@ ffmpeg-plan assembly and returns the plan. It does not run ffmpeg, upload to B2,
 or write the D1 render log in-process.
 
 ```bash
-clojure -M:test
-PORT=8000 clojure -M:run
+kbb -M:test
+PORT=8000 kbb -M:run
 
 # Internal live-action demo using a reviewed local keyframe
-clojure -M:dev -m dougaka.pipeline \
+kbb -M:dev -m dougaka.pipeline \
   examples/india-ludo-live-action-internal.edn \
   target/dougaka/india-ludo-live-action-internal-v1
 ```

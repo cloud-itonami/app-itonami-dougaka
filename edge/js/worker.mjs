@@ -13,7 +13,7 @@
  *
  * The alternative was ClojureScript, which needs shadow-cljs, which needs a
  * JVM. Measured 2026-09-01 on this machine: that build waited 40 minutes
- * behind other sessions' `clojure -M:test` under load 628 and then timed out.
+ * behind other sessions' `kbb -M:test` under load 628 and then timed out.
  * `amu compile --target wasm32-browser` needed none of it — proven by putting
  * failing stubs for java/javac/clojure/clj on PATH and watching it still emit
  * a .wasm.

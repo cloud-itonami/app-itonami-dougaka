@@ -12,8 +12,8 @@
   yields a playable video — the same never-throw honesty rule as
   comfyui.gateway's placeholder.
 
-  Usage: clojure -M:dev -m dougaka.pipeline               ; 3-shot demo plan
-         clojure -M:dev -m dougaka.pipeline <plan.edn> [out-dir]"
+  Usage: kbb -M:dev -m dougaka.pipeline               ; 3-shot demo plan
+         kbb -M:dev -m dougaka.pipeline <plan.edn> [out-dir]"
   (:require [clojure.edn :as edn]
             [kotoba.lang.text :as str]
             [douga.ffmpeg :as ff]

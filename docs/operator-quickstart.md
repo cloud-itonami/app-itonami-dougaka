@@ -19,7 +19,7 @@ git deps), and `ffmpeg` on `PATH` for the pipeline steps only.
 
 ```bash
 cd clj
-clojure -M:test
+kbb -M:test
 ```
 
 ```
@@ -36,7 +36,7 @@ show the auth boundary**, because when it is unset every route is open.
 
 ```bash
 cd clj
-LG_API_KEY=walkthrough-key PORT=8793 clojure -M:run
+LG_API_KEY=walkthrough-key PORT=8793 kbb -M:run
 ```
 
 ```
@@ -146,7 +146,7 @@ Stop the server with Ctrl-C when you are done.
 
 ## 8. The offline pipeline — a real mp4
 
-**Do not use the `clojure -M:dev` form printed in `clj/README.md`.** Outside
+**Do not use the `kbb -M:dev` form printed in `clj/README.md`.** Outside
 the west checkout it cannot resolve its own dependency:
 
 ```
@@ -158,7 +158,7 @@ pinned:
 
 ```bash
 cd clj
-clojure -M -m dougaka.pipeline \
+kbb -M -m dougaka.pipeline \
   examples/india-ludo-live-action-internal.edn target/qs-probe
 ```
 
@@ -197,7 +197,7 @@ Flip the flag and the `VOICEVOX → macOS say → silence` chain runs for real:
 cd clj
 sed 's/:voice? false/:voice? true/g' \
   examples/india-ludo-live-action-internal.edn > /tmp/qs-voiced.edn
-clojure -M -m dougaka.pipeline /tmp/qs-voiced.edn target/qs-voiced
+kbb -M -m dougaka.pipeline /tmp/qs-voiced.edn target/qs-voiced
 ```
 
 ```
