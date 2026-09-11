@@ -15,7 +15,7 @@ cd lg
 ## 1. Run the test suite
 
 ```bash
-bb run_tests.clj
+kbb run_tests.cljk
 ```
 
 ```
@@ -36,7 +36,7 @@ port or an API key. A host supplies them. Under `bb`, `org.httpkit.server` is
 built in, so a local host is one expression:
 
 ```bash
-PORT=8791 LG_API_KEY=dev-key bb -e '
+PORT=8791 LG_API_KEY=dev-key kbb -e '
 (require (quote [lg-dougaka.server :as server]) (quote [org.httpkit.server :as httpkit]))
 (server/run-server-with httpkit/run-server (Integer/parseInt (System/getenv "PORT")) (System/getenv "LG_API_KEY"))
 (println "lg-dougaka listening on" (System/getenv "PORT") (vec (keys server/GRAPHS)))
@@ -128,7 +128,7 @@ curl -sS -X POST http://127.0.0.1:8791/xrpc/com.etzhayyim.apps.dougaka.unknown \
 The renderer boundary is unconfigured by default, and says so:
 
 ```bash
-bb -e '
+kbb -e '
 (require (quote [lg-dougaka.graphs.render :as render]) (quote [langgraph.graph :as g]))
 (def timeline {:scenes [{:index 0 :location "studio" :action "intro"}]
                :lines  [{:scene_index 0 :line_index 0 :speaker "left" :text "hello" :emotion "normal"}]})
@@ -147,7 +147,7 @@ turns its refusal into a graph `:error` instead of a crash.
 Bind a renderer and the pipeline completes end to end:
 
 ```bash
-bb -e '
+kbb -e '
 (require (quote [lg-dougaka.graphs.render :as render]) (quote [langgraph.graph :as g]))
 (def timeline {:scenes [{:index 0 :location "studio" :action "intro"}]
                :lines  [{:scene_index 0 :line_index 0 :speaker "left" :text "hello" :emotion "normal"}]})

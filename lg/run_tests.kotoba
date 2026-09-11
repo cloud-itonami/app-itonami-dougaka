@@ -1,6 +1,6 @@
-#!/usr/bin/env bb
+#!/usr/bin/env kbb
 ;; lg-dougaka test runner (repo rule: run_tests.clj, NOT .sh; ADR-2606280030).
-;; Usage: from 60-apps/etzhayyim-project-dougaka/lg/  →  bb run_tests.clj
+;; Usage: from 60-apps/etzhayyim-project-dougaka/lg/  →  kbb run_tests.cljk
 ;; Uses the scoped bb.edn (src + tests on the classpath; langgraph-clj dep).
 (require '[clojure.test :as t]
          '[lg-dougaka.test-smoke]
