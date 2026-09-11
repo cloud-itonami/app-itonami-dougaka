@@ -3,8 +3,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "offer": "nbb scripts/gen_offer.cljs --pricing ../../ai-gftd-dougaka-actor/pricing.edn --kotoba",
-    "offer:check": "nbb scripts/gen_offer.cljs --pricing ../../ai-gftd-dougaka-actor/pricing.edn --check",
+    "offer": "kbb --backend sci scripts/gen_offer.cljk --pricing ../../ai-gftd-dougaka-actor/pricing.edn --kotoba",
+    "offer:check": "kbb --backend sci scripts/gen_offer.cljk --pricing ../../ai-gftd-dougaka-actor/pricing.edn --check",
     "compile": "amu compile kotoba/offer.kotoba --unpinned --target wasm32-browser --output js/offer.wasm",
     "host": "cp ../../../kotoba-lang/amu/runtime/browser-host.mjs js/browser-host.mjs",
     "build": "npm run offer && npm run compile && npm run host",
