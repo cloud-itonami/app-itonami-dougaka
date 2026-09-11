@@ -122,7 +122,7 @@ curl -sS -X POST http://127.0.0.1:8793/xrpc/ai.gftd.apps.dougaka.render \
 
 **This is the gap, not a feature to rely on:** step 4 refused the same graph
 without a key and this did not. `runs-handler` calls `api-key-ok?`;
-`xrpc-handler` does not (`clj/src/dougaka/server.cljc`). Anything fronting this
+`xrpc-handler` does not (`clj/src/dougaka/server.cljk`). Anything fronting this
 service must not assume `LG_API_KEY` closes the render graph.
 
 Unknown nsid → `404 {"error":"unknown graph/nsid: …"}`; unknown path →
