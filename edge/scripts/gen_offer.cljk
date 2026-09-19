@@ -1,5 +1,6 @@
 #!/usr/bin/env kbb
-;; edge/src/dougaka/offer.cljs を **生成する**。手で書かない。
+;; edge/kotoba/offer.kotoba を **生成する**。手で書かない。
+;; （旧 cljs 経路は kbb cutover で退役 —— 生成物は `.kotoba` に一本化された。）
 ;;
 ;;   kbb --backend sci edge/scripts/gen_offer.cljk --pricing <path to actor pricing.edn>
 ;;   kbb --backend sci edge/scripts/gen_offer.cljk --pricing <path> --check
@@ -22,8 +23,10 @@
 (def argv (vec (drop 2 (.-argv js/process))))
 (defn opt [n d] (let [i (.indexOf argv n)] (if (neg? i) d (get argv (inc i) d))))
 (def check? (some #{"--check"} argv))
+(def kotoba? (some #{"--kotoba"} argv))
+(def out-given? (some #{"--out"} argv))
 (def pricing-path (opt "--pricing" "../ai-gftd-dougaka-actor/pricing.edn"))
-(def out-path (opt "--out" "edge/src/dougaka/offer.cljs"))
+(def out-path (opt "--out" "edge/kotoba/offer.kotoba"))
 
 (defn- source-sha []
   (try (str/trim (.toString (cp/execSync "git rev-parse HEAD"
@@ -116,18 +119,22 @@
     (let [book (edn/read-string raw)
           sha (source-sha)
           doc (document book sha)
-          text (render doc sha)]
-      (when (some #{"--kotoba"} argv)
-        (fs/mkdirSync "edge/kotoba" #js {:recursive true})
-        (fs/writeFileSync "edge/kotoba/offer.kotoba" (render-kotoba doc sha))
-        (println "wrote edge/kotoba/offer.kotoba"))
+          ;; kbb cutover 以降、デフォルトは `.kotoba` 生成。明示 `--out` を
+          ;; 渡したときだけ旧 cljs render を使う（比較 oracle として温存）。
+          text (if (or kotoba? (not out-given?))
+                 (render-kotoba doc sha)
+                 (render doc sha))]
       (if check?
         (let [cur (try (fs/readFileSync out-path "utf8") (catch :default _ ""))]
-          ;; sha 行以外を比べる: sha だけの差は「価格が動いた」ではない
-          (let [strip #(str/replace % #";; source:.*\n" "")]
+          ;; sha 行以外を比べる: sha だけの差は「価格が動いた」ではない。
+          ;; source sha は header 行と JSON `generated.sha` の両方に焼かれるので、
+          ;; 40-hex は両方 strip する（価格の実体は resources の中身）。
+          (let [strip #(str/replace (str/replace % #";; source:.*\n" "") #"[0-9a-f]{40}" "SHASTRIP")]
             (if (= (strip cur) (strip text))
-              (println "offer.cljs is current")
+              (println out-path "is current")
               (do (println "STALE:" out-path "does not match" pricing-path)
                   (js/process.exit 1)))))
-        (do (fs/writeFileSync out-path text)
+        (do (fs/mkdirSync (.dirname (js/require "path") out-path)
+                          #js {:recursive true})
+            (fs/writeFileSync out-path text)
             (println "wrote" out-path "from" pricing-path "@" sha))))))
