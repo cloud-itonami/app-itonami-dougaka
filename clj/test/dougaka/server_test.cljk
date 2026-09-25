@@ -1,5 +1,5 @@
 (ns dougaka.server-test
-  (:require [clojure.test :refer [deftest is]]
+  (:require [kotoba.test :refer [deftest is]]
             [jsonista.core :as j]
             [dougaka.server :as server]))
 

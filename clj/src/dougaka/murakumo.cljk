@@ -11,7 +11,7 @@
 
   Auth: env MURAKUMO_GENERATION_TOKEN (scope `generation`). Read here, passed
   down, never logged or written to an artifact."
-  (:require [clojure.edn :as edn]
+  (:require [kotoba.io :as kio] [kotoba.lang.edn :as edn]
             [clojure.java.io :as io]
             [kotoba.lang.text :as str]
             [jsonista.core :as j]
@@ -21,7 +21,6 @@
            [java.net.http HttpClient HttpRequest HttpRequest$BodyPublishers
             HttpResponse$BodyHandlers]
            [java.security MessageDigest]
-           [java.nio.file Files]
            [java.time Duration]))
 
 (def ^:private mapper (j/object-mapper {:decode-key-fn true}))
@@ -96,7 +95,7 @@
 
 (defn sha256-hex [f]
   (let [d (.digest (MessageDigest/getInstance "SHA-256")
-                   (Files/readAllBytes (.toPath (io/file f))))]
+                   (kio/read-all-bytes (io/file f)))]
     (apply str (map #(format "%02x" (bit-and % 0xff)) d))))
 
 (defn opts

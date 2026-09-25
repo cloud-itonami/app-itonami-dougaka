@@ -47,3 +47,4 @@ test-results/
 # (a `git add -A` after running the suite) and one predates that; this stops
 # the next run adding a third.
 clj/target/
+.nbb/

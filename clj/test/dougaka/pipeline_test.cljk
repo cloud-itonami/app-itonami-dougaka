@@ -6,10 +6,10 @@
   The integration test at the bottom runs ffmpeg for real. It is not skipped
   when ffmpeg is missing — a node without ffmpeg cannot produce, and a green
   suite there would be the silence this workspace keeps finding."
-  (:require [clojure.java.io :as io]
+  (:require [kotoba.io :as io]
             [clojure.java.shell :as shell]
             [kotoba.lang.text :as str]
-            [clojure.test :refer [deftest is testing]]
+            [kotoba.test :refer [deftest is testing]]
             [dougaka.murakumo :as murakumo]
             [dougaka.pipeline :as pipeline]))
 
@@ -99,8 +99,8 @@
                                             :render-fn (fn [_] {:mime "stub"})})
         legs (:legs r)]
     (testing "a playable cut came out, with both shots and the sidecar"
-      (is (.isFile (io/file (:video r))))
-      (is (.isFile (io/file (:srt r))))
+      (is (io/file? (io/file (:video r))))
+      (is (io/file? (io/file (:srt r))))
       (is (= 2 (:shots r)))
       (is (= [:placeholder :placeholder] (:video legs)))
       (is (= [:silent :silent] (:voice legs)))

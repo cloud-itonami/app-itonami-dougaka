@@ -1,6 +1,6 @@
 (ns dougaka.core-test
-  (:require [clojure.edn :as edn]
-            [clojure.test :refer [deftest is testing]]
+  (:require [kotoba.lang.edn :as edn]
+            [kotoba.test :refer [deftest is testing]]
             [douga.ffmpeg :as plan]
             [dougaka.graphs.registry :as reg]))
 

@@ -1,13 +1,13 @@
 (ns dougaka.kotobase-test
-  (:require [kotoba.lang.text :as str]
-            [clojure.test :refer [deftest is testing]]
+  (:require [kotoba.lang.error :as kerror] [kotoba.bytes :as kbytes] [kotoba.lang.text :as str]
+            [kotoba.test :refer [deftest is testing]]
             [dougaka.kotobase :as kb])
   (:import [java.security MessageDigest]))
 
 (defn- sha256 [^String s]
   (map #(bit-and % 0xff)
        (.digest (MessageDigest/getInstance "SHA-256")
-                (.getBytes s "UTF-8"))))
+                (kbytes/utf8-bytes s))))
 
 (deftest raw-cid-matches-a-real-published-artifact
   (testing "the CID of an empty object — the canonical raw/sha2-256 fixture"
@@ -16,8 +16,8 @@
     (is (= "bafkreihdwdcefgh4dqkjv67uzcmw7ojee6xedzdetojuzjevtenxquvyku"
            (kb/raw-cid (sha256 "")))))
   (testing "digest length is enforced — a truncated digest must not become a CID"
-    (is (thrown? clojure.lang.ExceptionInfo (kb/raw-cid (take 31 (sha256 "x")))))
-    (is (thrown? clojure.lang.ExceptionInfo (kb/raw-cid [])))))
+    (is (thrown? kerror/ExceptionInfo (kb/raw-cid (take 31 (sha256 "x")))))
+    (is (thrown? kerror/ExceptionInfo (kb/raw-cid [])))))
 
 (deftest cid-shape
   (let [cid (kb/raw-cid (sha256 "dougaka"))]

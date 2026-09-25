@@ -1,6 +1,6 @@
 (ns dougaka.subtitle-test
   (:require [kotoba.lang.text :as str]
-            [clojure.test :refer [deftest is]]
+            [kotoba.test :refer [deftest is]]
             [dougaka.subtitle :as subtitle]))
 
 (def plan

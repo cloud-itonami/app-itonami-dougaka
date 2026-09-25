@@ -12,7 +12,7 @@
 
   JVM-only I/O (JDK HttpClient — no extra deps), mirrors the repo convention
   (.clj for host I/O, .cljc for pure logic)."
-  (:require [kotoba.lang.text :as str]
+  (:require [kotoba.bytes :as kbytes] [kotoba.lang.text :as str]
             [kotoba.util :as kutil]
             [kotoba.net :as knet]))
 
@@ -100,7 +100,7 @@
     (let [q (http-post-bytes (audio-query-url base text speaker) {})]
       (when (= 200 (:status q))
         (let [s (http-post-bytes (synthesis-url base speaker)
-                                 {:body (String. ^bytes (:bytes q) "UTF-8")
+                                 {:body (kbytes/utf8-string ^bytes (:bytes q))
                                   :content-type "application/json"})]
           (when (= 200 (:status s)) (:bytes s)))))
     (catch Exception _ nil)))

@@ -1,5 +1,5 @@
 (ns dougaka.comfy-test
-  (:require [clojure.test :refer [deftest is]]
+  (:require [kotoba.test :refer [deftest is]]
             [dougaka.comfy :as comfy]))
 
 (deftest render-parses-gateway-success
