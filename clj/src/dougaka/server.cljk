@@ -1,5 +1,5 @@
 (ns dougaka.server
-  (:require [clojure.edn :as edn]
+  (:require [kotoba.lang.edn :as edn]
             [kotoba.lang.text :as str]
             [jsonista.core :as j]
             [org.httpkit.server :as hk]

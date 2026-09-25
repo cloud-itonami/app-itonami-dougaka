@@ -1,6 +1,6 @@
 (ns dougaka.voice-test
-  (:require [kotoba.lang.text :as str]
-            [clojure.test :refer [deftest is]]
+  (:require [kotoba.lang.coll :as kcoll] [kotoba.lang.text :as str]
+            [kotoba.test :refer [deftest is]]
             [dougaka.voice :as voice]))
 
 (deftest voicevox-urls
@@ -13,7 +13,7 @@
   (let [cmd (voice/pad-cmd "v.wav" 3 "out.wav")]
     (is (= "out.wav" (last cmd)))
     (is (some #{"apad"} (map #(last (str/split % #",")) cmd)))
-    (is (= "3.0" (nth cmd (inc (.indexOf ^java.util.List cmd "-t")))))))
+    (is (= "3.0" (nth cmd (inc (kcoll/index-of cmd "-t")))))))
 
 (deftest synth-skips-blank-lines
   (is (nil? (voice/synth! {:text "   " :out "/tmp/never.wav"}))))

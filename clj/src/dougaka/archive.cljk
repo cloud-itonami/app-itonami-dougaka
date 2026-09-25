@@ -15,13 +15,12 @@
   Auth: env KOTOBASE_ARCHIVE_TOKEN (bearer). Absent -> every put returns nil
   with a warning and the production continues; storage is a mirror, never a
   gate on shipping the episode."
-  (:require [clojure.java.io :as io]
+  (:require [kotoba.io :as kio] [clojure.java.io :as io]
             [kotoba.lang.text :as str]
             [dougaka.kotobase :as kb])
   (:import [java.net URI]
            [java.net.http HttpClient HttpRequest HttpRequest$BodyPublishers
             HttpResponse$BodyHandlers]
-           [java.nio.file Files]
            [java.security MessageDigest]
            [java.time Duration]))
 
@@ -34,7 +33,7 @@
 (defn- warn [& xs]
   (binding [*out* *err*] (apply println "[kotobase]" xs)))
 
-(defn file-bytes ^bytes [f] (Files/readAllBytes (.toPath (io/file f))))
+(defn file-bytes ^bytes [f] (kio/read-all-bytes (io/file f)))
 
 (defn cid-of
   "File -> its raw CIDv1. This is the name the artifact will have forever."
