@@ -1,0 +1,23 @@
+;; 公開物の宣言 —— network-awai/cloud-itonami の生成器が読む（JUN-286 の契約、
+;; workspaces/claude/itonami-compat-dapps/SPEC.md §4）。
+;;
+;; - :vendor は site/vendor/ から vendor/<file> へ、この順で <script src> に並ぶ。
+;;   React UMD は scittle.reagent.js より先に読まれなければならない。
+;; - :external は :sha の commit から取る（生成器が git show で読む）。手元の
+;;   checkout の作業中の状態を公開物に混ぜないため。deps.edn / nbb.edn の pin と揃える。
+;; - :external と :sources は :to へコピーし、この順で
+;;   <script type="application/x-scittle"> に並ぶ。scittle は同じ SCI 文脈で
+;;   順に評価するので、require される側を先に置く。
+;; - (dougaka.page/document opts) が完全な HTML を返す。
+{:title "dougaka — 動画組み立てプラン"
+ :description "timeline の JSON から ffmpeg の組み立て計画（segments・解像度・台本）をブラウザの中だけで作る。データは送信されず、この端末の localStorage にだけ残る。mp4 のエンコードはしない。"
+ :page {:ns dougaka.page :fn document}
+ :vendor ["react.production.min.js" "react-dom.production.min.js"
+          "scittle.js" "scittle.reagent.js" "scittle.re-frame.js"]
+ :external [{:repo "kotoba-lang/text" :sha "bc551a3ecc68e551ba1dd2fcb22d5f1b8dd7805d"
+             :from "src/kotoba/lang/text.cljk" :to "kotoba/lang/text.cljs"}]
+ :sources [{:from "src/dougaka/core.cljk" :to "dougaka/core.cljs"}
+           {:from "src/dougaka/ingest.cljk" :to "dougaka/ingest.cljs"}
+           {:from "src/dougaka/export.cljk" :to "dougaka/export.cljs"}
+           {:from "src/dougaka/view.cljk" :to "dougaka/view.cljs"}
+           {:from "site/app.cljk" :to "app.cljs"}]}

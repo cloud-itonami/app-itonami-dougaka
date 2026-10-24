@@ -1,0 +1,22 @@
+(ns run-tests
+  "kbb 実行のテスト runner（npm test から呼ばれる）。cljs.test を回し、失敗か
+  エラーがあれば exitCode を 1 にする。
+
+  classpath（west レイアウト、repo ルートで）:
+    kbb --backend sci --classpath src:test:../../kotoba-lang/text/src test/run_tests.cljk"
+  (:require [cljs.test :refer [run-tests]]
+            [dougaka.parity-test]
+            [dougaka.core-test]
+            [dougaka.ingest-test]
+            [dougaka.view-test]
+            [dougaka.mcp-test]
+            [mcp-stdio-test]))
+
+(let [{:keys [fail error]} (run-tests 'dougaka.parity-test
+                                      'dougaka.core-test
+                                      'dougaka.ingest-test
+                                      'dougaka.view-test
+                                      'dougaka.mcp-test
+                                      'mcp-stdio-test)]
+  (when (pos? (+ fail error))
+    (set! (.-exitCode js/process) 1)))

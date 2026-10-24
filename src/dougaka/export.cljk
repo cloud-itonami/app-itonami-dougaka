@@ -1,0 +1,44 @@
+(ns dougaka.export
+  "計画の書き出し — plan JSON と ffmpeg シェル台本。純関数。"
+  (:require [kotoba.lang.text :as text]
+            [dougaka.core :as core]))
+
+(defn- escape-sh [s]
+  (str "'" (text/replace (str s) "'" "'\\''") "'"))
+
+(defn plan-json
+  "plan map -> JSON テキスト（ブラウザと kbb のホスト JSON で整形）。"
+  [plan]
+  #?(:cljs (js/JSON.stringify (clj->js plan) nil 2)
+     :clj (throw (ex-info "dougaka.export/plan-json needs a JS host" {}))))
+
+(defn ffmpeg-script
+  "plan -> 実行用の sh 台本（表示・保存用。実行はしない）。"
+  [plan]
+  (let [{:keys [segments concat]} (core/plan-commands plan)
+        head ["#!/bin/sh"
+              "# dougaka dapp が作った組み立て台本（表示・保存用。実行は手元で）"
+              "# segment を作ってから concat する。"
+              ""]
+        lines (clojure.core/concat head
+                                   (map (fn [argv] (text/join " " (map escape-sh argv))) segments)
+                                   [""
+                                    (text/join " " (map escape-sh concat))])]
+    (text/join "\n" lines)))
+
+(defn pretty-plan
+  "plan -> 人向けの要約テキスト。"
+  [plan]
+  (let [segs (get plan "segments")]
+    (text/join "\n"
+               (concat [(str "video-id: " (get plan "video-id"))
+                        (str "aspect: " (get plan "aspect")
+                             " " (get plan "width") "x" (get plan "height")
+                             " @" (get plan "fps") "fps")
+                        (str "segments: " (get plan "segment-count"))]
+                       (map-indexed (fn [i s]
+                                      (str "  [" i "] scene " (get s "scene-index")
+                                           " frame=" (get s "frame-blob-key")
+                                           (let [vs (get s "voice-blob-keys")]
+                                             (if (seq vs) (str " voices=" (text/join "," vs)) " (silent)"))))
+                                    segs)))))

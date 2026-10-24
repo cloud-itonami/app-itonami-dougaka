@@ -1,0 +1,28 @@
+(ns dougaka.parity-test
+  "parity fixture（test/fixtures/parity.edn）を adapter で全行照合する。
+
+  同じ表を guest が 2 か所で通す:
+    - aiueos/dougaka_core.cljk の test-*（amu test、:jvm-kir :js :wasm）
+    - test/guest_parity.mjs（コンパイル済み wasm を host で）"
+  (:require [cljs.test :refer [deftest is testing]]
+            [clojure.edn :as edn]
+            ["fs" :as fs]
+            [dougaka.core :as core]))
+
+(def rows (edn/read-string (fs/readFileSync "test/fixtures/parity.edn" "utf8")))
+
+(def adapter
+  {"aspect-code" (fn [n] (core/aspect-code (cond (= n 1) "landscape" (= n 0) "portrait" :else "sideways")))
+   "dims-w" core/dims-w
+   "dims-h" core/dims-h
+   "scene-count-ok?" core/scene-count-ok?
+   "duration-ok?" core/duration-ok?
+   "shot-ok?" core/shot-ok?})
+
+(deftest every-row-matches
+  (doseq [{f :fn args :args expect :expect} rows]
+    (testing (str f " " (pr-str args))
+      (is (= expect (apply (adapter f) args))))))
+
+(deftest row-count-matches
+  (is (= 21 (count rows))))

@@ -1,0 +1,58 @@
+(ns mcp-stdio-test
+  "bin/dougaka-mcp をプロセスとして起こし、itonami agent の MCP クライアント
+  と同じやり方で話す: initialize → notifications/initialized → 要求 の 3 行を
+  stdin に書いて閉じ、stdout の id 2 の行を読む。終了コード 0 でなければ、
+  agent はエラーとして扱う。"
+  (:require [cljs.test :refer [deftest is testing]]
+            ["child_process" :as cp]
+            ["fs" :as fs]
+            ["path" :as path]
+            [kotoba.lang.text :as text]
+            [dougaka.ingest :as ingest]))
+
+(def server (fs/realpathSync "bin/dougaka-mcp"))
+
+(defn- line [m] (str (.stringify js/JSON (clj->js m)) "\n"))
+
+(defn- exchange
+  "agent と同じ 3 行を流して {:status :responses :stderr} を返す。"
+  [cwd method params]
+  (let [input (str (line {"jsonrpc" "2.0" "id" 1 "method" "initialize"
+                          "params" {"protocolVersion" "2024-11-05" "capabilities" {}
+                                    "clientInfo" {"name" "itonami-agent" "version" "0.1"}}})
+                   (line {"jsonrpc" "2.0" "method" "notifications/initialized" "params" {}})
+                   (line {"jsonrpc" "2.0" "id" 2 "method" method "params" params}))
+        r (cp/spawnSync "kbb" #js [server]
+                        #js {:cwd cwd :input input :encoding "utf8" :timeout 30000
+                             :env (js/Object.assign #js {} js/process.env)})]
+    {:status (.-status r)
+     :stderr (str (.-stderr r))
+     :responses (->> (text/split-lines (str (.-stdout r)))
+                     (keep #(try (js->clj (.parse js/JSON %)) (catch :default _ nil)))
+                     (filter map?)
+                     vec)
+     :stdout (str (.-stdout r))}))
+
+(defn- by-id [{:keys [responses]} id]
+  (first (filter #(= id (get % "id")) responses)))
+
+(deftest lists-tools-from-any-cwd
+  (doseq [cwd ["/" (path/dirname (path/dirname server))]]
+    (testing (str "cwd " cwd)
+      (let [r (exchange cwd "tools/list" {})]
+        (is (= 0 (:status r)) (:stderr r))
+        (is (= "dougaka" (get-in (by-id r 1) ["result" "serverInfo" "name"])))
+        (is (= 2 (count (get-in (by-id r 2) ["result" "tools"]))))
+        (testing "stdout は JSON-RPC の行だけ（通知への応答も無い）"
+          (is (= 2 (count (:responses r))))
+          (is (every? #(= "2.0" (get % "jsonrpc")) (:responses r))))))))
+
+(deftest calls-a-tool-and-exits-zero
+  (let [r (exchange "/" "tools/call" {"name" "dougaka_plan"
+                                      "arguments" {"text" ingest/sample-timeline "aspect" "portrait"}})
+        result (get (by-id r 2) "result")]
+    (is (= 0 (:status r)) (:stderr r))
+    (is (false? (get result "isError")))
+    (is (= 2 (get-in result ["structuredContent" "plan" "segment-count"])))
+    (testing "text と structuredContent は同じ値"
+      (is (= (get result "structuredContent")             (js->clj (.parse js/JSON (get-in result ["content" 0 "text"]))))))))

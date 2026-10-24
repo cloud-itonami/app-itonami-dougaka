@@ -1,0 +1,178 @@
+(ns dougaka.mcp
+  "dougaka の MCP tool 面 — itonami agent（kotoba-lang/itonami-agent）が profile の
+  `config.yaml` の `mcp_servers` から stdio で呼ぶ。
+
+  ここにあるのは JSON-RPC の要求 1 件 → 応答 1 件の純関数だけで、stdin/stdout の
+  ループは bin/dougaka-mcp が持つ。判定はブラウザと同じ adapter（dougaka.core /
+  ingest / export）をそのまま呼ぶ。wasm guest は読まない。guest との一致は
+  test/fixtures/parity.edn の表（amu test・wasm parity・kbb の 3 経路）で担保する。
+
+  **pure**: ネットワークも、ファイルの書き込みも、状態の保存もしない。tool は
+  渡されたテキストだけから結果を作り、呼び出しをまたいで何も覚えない。
+
+  tool の入力不正は JSON-RPC の error ではなく `isError: true` の結果で返す
+  （名前付きの理由を text の `{\"error\": …}` に入れる）。"
+  (:require [kotoba.lang.text :as text]
+            [dougaka.core :as core]
+            [dougaka.ingest :as ingest]
+            [dougaka.export :as export]))
+
+(def server-name "dougaka")
+(def server-version "0.1.0")
+(def default-protocol-version "2024-11-05")
+
+(def max-input-bytes
+  "1 回の tool 入力テキストの上限（UTF-8 バイト）。"
+  (* 5 1024 1024))
+
+;; ───────── JSON（ホスト） ─────────
+
+(defn ->json [x]
+  #?(:cljs (js/JSON.stringify (clj->js x))
+     :clj (throw (ex-info "dougaka.mcp needs a JS host for JSON" {}))))
+
+(defn- utf8-length [s]
+  #?(:cljs (.-length (.encode (js/TextEncoder.) (str s)))
+     :clj (alength (.getBytes ^String (str s) "UTF-8"))))
+
+;; ───────── tool の宣言 ─────────
+
+(def tools
+  [{"name" "dougaka_validate"
+    "description" (str "Validate a dougaka timeline JSON (scenes/assets/lines): scene count 1..24, "
+                       "every scene has a scene frame, estimated duration within 120s. "
+                       "Pure: returns named errors, sends and stores nothing.")
+    "inputSchema" {"type" "object"
+                   "properties" {"text" {"type" "string"
+                                         "description" "Timeline JSON text, at most 5 MiB of UTF-8."}}
+                   "required" ["text"]
+                   "additionalProperties" false}}
+   {"name" "dougaka_plan"
+    "description" (str "Build a dougaka render plan from timeline JSON: ordered segments with frame/voice/text, "
+                       "width/height/fps, bgm, plus display-only ffmpeg argv. "
+                       "Pure: no mp4 encoding, no network, nothing stored.")
+    "inputSchema" {"type" "object"
+                   "properties" {"text" {"type" "string"
+                                         "description" "Timeline JSON text, at most 5 MiB of UTF-8."}
+                                 "aspect" {"type" "string" "enum" ["portrait" "landscape"]
+                                            "description" "Override the timeline aspect. Default follows the timeline (portrait)."}}
+                   "required" ["text"]
+                   "additionalProperties" false}}])
+
+(def ^:private tool-index (into {} (map (juxt #(get % "name") identity)) tools))
+
+;; ───────── 入力の検査 ─────────
+
+(defn- check-args
+  "inputSchema の範囲（必須・未知キー・型・enum）だけを見る。
+  戻り: nil（通る）か、名前付きの理由文字列。"
+  [schema args]
+  (let [props (get schema "properties")
+        unknown (remove #(contains? props %) (keys args))
+        missing (remove #(contains? args %) (get schema "required"))]
+    (cond
+      (seq unknown) (str "unknown-argument: " (text/join ", " (sort unknown)))
+      (seq missing) (str "missing-argument: " (text/join ", " missing))
+      :else
+      (some (fn [[k v]]
+              (let [p (get props k)
+                    t (get p "type")]
+                (cond
+                  (and (= "string" t) (not (string? v))) (str "not-a-string: " k)
+                  (and (get p "enum") (not (some #{v} (get p "enum")))) (str "not-allowed: " k)
+                  :else nil)))
+            args))))
+
+;; ───────── tool の本体 ─────────
+
+(defn- error-result [reason] {:error reason})
+
+(defn validate-timeline
+  "dougaka_validate。戻り {:result map} か {:error reason}。"
+  [{:strs [text]}]
+  (cond
+    (> (utf8-length text) max-input-bytes) (error-result "input-too-large: text exceeds 5 MiB")
+    (text/blank? text) (error-result "empty-input: text is blank")
+    :else
+    (let [{:keys [timeline error]} (try (ingest/ingest text)
+                                        (catch :default _ {:error "parse-failed"}))]
+      (if error
+        (error-result error)
+        (let [{:keys [ok? errors]} (core/validate timeline)]
+          {:result {"ok" ok? "errors" errors}})))))
+
+(defn plan-timeline
+  "dougaka_plan。戻り {:result map} か {:error reason}。"
+  [{:strs [text aspect]}]
+  (cond
+    (> (utf8-length text) max-input-bytes) (error-result "input-too-large: text exceeds 5 MiB")
+    (text/blank? text) (error-result "empty-input: text is blank")
+    :else
+    (let [{:keys [timeline error]} (try (ingest/ingest text)
+                                        (catch :default _ {:error "parse-failed"}))]
+      (if error
+        (error-result error)
+        (let [{:keys [ok? errors]} (core/validate timeline)]
+          (if-not ok?
+            {:result {"ok" false "errors" errors "plan" nil}}
+            (let [plan (core/build-plan timeline (cond-> {} (seq aspect) (assoc :aspect aspect)))]
+              {:result {"ok" true "errors" [] "plan" plan
+                        "summary" (export/pretty-plan plan)
+                        "ffmpeg" (export/ffmpeg-script plan)}})))))))
+
+(def ^:private handlers
+  {"dougaka_validate" validate-timeline
+   "dougaka_plan" plan-timeline})
+
+(defn call-tool
+  "tool 名と引数（文字列キーの map）→ MCP の tools/call 結果。"
+  [tool-name args]
+  (let [tool (get tool-index tool-name)
+        args (or args {})
+        outcome (cond
+                  (nil? tool) (error-result (str "unknown-tool: " tool-name))
+                  (not (map? args)) (error-result "arguments-not-an-object")
+                  :else (or (some-> (check-args (get tool "inputSchema") args) error-result)
+                            ((get handlers tool-name) args)))]
+    (if-let [reason (:error outcome)]
+      {"content" [{"type" "text" "text" (->json {"error" reason})}]
+       "isError" true}
+      {"content" [{"type" "text" "text" (->json (:result outcome))}]
+       "structuredContent" (:result outcome)
+       "isError" false})))
+
+;; ───────── JSON-RPC ─────────
+
+(defn- rpc-result [id value] {"jsonrpc" "2.0" "id" id "result" value})
+(defn- rpc-error [id code message] {"jsonrpc" "2.0" "id" id "error" {"code" code "message" message}})
+
+(defn handle-request
+  "JSON-RPC の要求 map（文字列キー）→ 応答 map。通知（id 無し）には nil。"
+  [req]
+  (let [id (get req "id")
+        method (get req "method")
+        params (or (get req "params") {})
+        notification? (not (contains? req "id"))]
+    (cond
+      (not (string? method)) (when-not notification? (rpc-error id -32600 "invalid request: no method"))
+      (text/starts-with? method "notifications/") nil
+      notification? nil
+      (= method "initialize")
+      (rpc-result id {"protocolVersion" (or (get params "protocolVersion") default-protocol-version)
+                      "capabilities" {"tools" {}}
+                      "serverInfo" {"name" server-name "version" server-version}
+                      "instructions" (str "dougaka: build an ffmpeg render plan from a timeline JSON you pass in. "
+                                          "Pure tools; nothing is encoded, sent or stored.")})
+      (= method "ping") (rpc-result id {})
+      (= method "tools/list") (rpc-result id {"tools" tools})
+      (= method "tools/call") (rpc-result id (call-tool (get params "name") (get params "arguments")))
+      :else (rpc-error id -32601 (str "method not found: " method)))))
+
+(defn handle-line
+  "stdin の 1 行 → stdout に書く 1 行（改行なし）か nil。"
+  [line]
+  (when-not (text/blank? line)
+    (let [req (ingest/parse-json line)]
+      (if (map? req)
+        (some-> (handle-request req) ->json)
+        (->json (rpc-error nil -32700 "parse error"))))))

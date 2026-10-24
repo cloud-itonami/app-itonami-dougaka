@@ -1,0 +1,16 @@
+{
+  "name": "app-itonami-dougaka",
+  "version": "0.1.0",
+  "private": true,
+  "license": "AGPL-3.0-or-later",
+  "description": "dougaka — 動画組み立てプランの itonami dapp（ブラウザ内完結）",
+  "scripts": {
+    "test": "kbb --backend sci --classpath src:test:../../kotoba-lang/text/src test/run_tests.cljk",
+    "check:guest": "../../kotoba-lang/amu/bin/amu check aiueos/dougaka_core.cljk",
+    "test:guest": "../../kotoba-lang/amu/bin/amu test aiueos/dougaka_core.cljk",
+    "build:guest": "../../kotoba-lang/amu/bin/amu compile aiueos/dougaka_core.cljk --target wasm32-browser --output aiueos/dougaka_core.wasm",
+    "test:guest-parity": "node test/guest_parity.mjs ../../kotoba-lang/amu/runtime/browser-host.mjs",
+    "build:site": "kbb --backend sci --classpath src:site:../../kotoba-lang/text/src:../../kotoba-lang/jp-go-digital-design-system/src:../../kotoba-lang/html/src:../../kotoba-lang/css/src scripts/build-site.cljk",
+    "mcp": "kbb bin/dougaka-mcp"
+  }
+}

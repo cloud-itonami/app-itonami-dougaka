@@ -1,0 +1,26 @@
+{:itonami.blueprint/id "app-itonami-dougaka"
+ :itonami.blueprint/name "dougaka — timeline to ffmpeg render plan, browser-local"
+ :itonami.blueprint/domain :media/video-assembly
+ :itonami.blueprint/license "AGPL-3.0-or-later"
+ :itonami.blueprint/social-impact [:data-sovereignty :self-hosting :creator-tools]
+ :itonami.blueprint/robotics false
+ :itonami.blueprint/required-technologies [:wasm-guest :browser-local-state]
+ :itonami.blueprint/status :public-oss
+ :itonami.blueprint/maturity :core-only
+ ;; app.itonami.cloud/dougaka/（network-awai/cloud-itonami の sites.edn、app org）。
+ ;; :endpoint は書かない —— 静的配信の道具で、呼び出せる actor ではない。書くと
+ ;; fleet catalog が callable だと嘘をつく。
+ :itonami.blueprint/org "app"
+ :itonami.blueprint/compat
+ {:target "ai-gftd-dougaka render graph"
+  :scope :data-format
+  :network false
+  :formats [:dougaka-timeline-json :ffmpeg-render-plan-json]
+  :note "本家 dougaka (cloud-itonami/dougaka) の render 計画部と同形のプランを作る。mp4 エンコード・生成 AI・B2/Kotobase への接続はしない。"}
+ :itonami.blueprint/implementation
+ {:language :kotoba
+  :target :wasm32-browser-kotoba-v1
+  :guest "aiueos/dougaka_core.cljk"
+  :descriptor "aiueos/dougaka.edn"
+  :ui :scittle-re-frame-reagent
+  :capabilities []}}

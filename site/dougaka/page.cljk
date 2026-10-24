@@ -1,0 +1,70 @@
+(ns dougaka.page
+  "app.itonami.cloud/dougaka/ のページの殻（SSR）。
+
+  UI は DADS（デジタル庁デザインシステム、`kotoba-lang/jp-go-digital-design-system`）
+  の class と、下の app-css だけで作る —— app.itonami.cloud の他の道具（mihari・
+  dandori・inkan）と同じ design system に載せる。
+
+  ## このページは何も送信しない
+
+  timeline には企画の内容が入る。**入力は 1 バイトもネットワークに出ない** ——
+  サーバも fetch も無く、保存はこの端末の localStorage だけ。外部リクエストも
+  ゼロにしてある: DADS の CSS は inline、React / scittle は同一オリジンに
+  vendor（site/vendor/PROVENANCE.edn）。
+
+  ## 本文は view と同じ関数
+
+  `<div id=\\\"app\\\">` の中身は `dougaka.view/main` を初期状態で描いたもの。
+  ブラウザでは site/app.cljk が同じ関数を Reagent で描き直すので、JS が
+  動く前と後で画面の骨格が変わらない（cloud-itonami ADR-0052 と同じ規律）。"
+  (:require [jp-go-dds.page :as dds-page]
+            [dougaka.view :as view]))
+
+(def ^:private site-title "dougaka — 動画組み立てプラン")
+
+(def ^:private site-description
+  "timeline の JSON から ffmpeg の組み立て計画をブラウザの中だけで作ります。データは送信されません。mp4 のエンコードはしません。")
+
+(def app-css
+  "DADS の上に載せる配置だけ。色は DADS の custom property から引く。"
+  ".dougaka{max-width:80rem;margin:0 auto;padding:1.5rem 1rem 3rem;}
+.dougaka-header{margin-bottom:1rem;}
+.dougaka-lead{color:var(--color-neutral-solid-gray-700,#555);line-height:1.7;max-width:72ch;}
+.dougaka-panel{border:1px solid var(--color-neutral-solid-gray-200,#ddd);border-radius:.5rem;padding:1rem;margin:1rem 0;background:var(--color-neutral-white,#fff);}
+.dougaka-row{display:flex;flex-wrap:wrap;gap:.5rem;align-items:center;margin-top:.75rem;}
+.dougaka-notice{padding:.5rem .75rem;border-left:4px solid var(--color-primitive-blue-900,#0031d8);}
+.dougaka-notice[data-tone=error]{border-left-color:var(--color-primitive-red-900,#c00);}
+.dougaka-facts{display:grid;grid-template-columns:max-content 1fr;gap:.25rem 1rem;}
+.dougaka-facts dd{margin:0;}
+.dougaka-table{overflow-x:auto;}
+.dougaka-num{text-align:right;font-variant-numeric:tabular-nums;}
+.dougaka-errors{color:var(--color-primitive-red-800,#b00);}
+.dougaka-pre{background:var(--color-neutral-solid-gray-50,#f7f7f7);border-radius:.375rem;padding:.75rem;overflow-x:auto;font-size:.8125rem;}
+.dougaka-footer{margin-top:3rem;font-size:.8125rem;color:var(--color-neutral-solid-gray-600,#666);line-height:1.7;}
+.dougaka .dads-textarea{width:100%;}")
+
+(defn- strip-client-only
+  "SSR では handler（fn）は意味を持たないので外す。"
+  [form]
+  (cond
+    (map? form) (into {} (remove (fn [[_ v]] (fn? v))) form)
+    (vector? form) (mapv strip-client-only form)
+    (seq? form) (map strip-client-only form)
+    :else form))
+
+(defn document
+  "完全な HTML 文書。opts（生成器が渡す。site/site.edn の契約）:
+  :css             vendored dds.css の中身（jp-go-dds.page は I/O を持たない）
+  :vendor-scripts  [\"vendor/react.production.min.js\" …]（この順で <script src>）
+  :scittle-scripts [\"kotoba/lang/text.cljs\" … \"app.cljs\"]（この順で scittle）"
+  [{:keys [css vendor-scripts scittle-scripts]}]
+  (dds-page/->page
+   {:title site-title
+    :description site-description
+    :css css
+    :app-css app-css
+    :head (vec (concat
+                (map (fn [src] [:script {:src (str "./" src)}]) vendor-scripts)
+                (map (fn [src] [:script {:type "application/x-scittle" :src (str "./" src)}])
+                     scittle-scripts)))}
+   [:div {:id "app"} (strip-client-only (view/main view/initial-model))]))

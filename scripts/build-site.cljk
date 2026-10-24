@@ -1,0 +1,60 @@
+;; ローカルの公開物を組む —— network-awai/cloud-itonami の生成器と同じ契約
+;; （site/site.edn）を、共通クロームを被せずに実行する。プレビューと
+;; スモークテスト用で、公開の正本は cloud-itonami 側の生成器。
+;;
+;;   kbb --backend sci \
+;;     --classpath "src:site:../../kotoba-lang/text/src:../../kotoba-lang/jp-go-digital-design-system/src:../../kotoba-lang/html/src:../../kotoba-lang/css/src" \
+;;     scripts/build-site.cljk [out-dir]
+;;
+;; 環境変数: KOTOBA_LANG（既定 ../../kotoba-lang）、DDS_CSS（dds.css のパス）。
+(ns build-site
+  (:require ["fs" :as fs]
+            ["path" :as path]
+            [clojure.edn :as edn]
+            [kotoba.lang.text :as text]
+            [dougaka.page]))
+
+(def kotoba-lang (or (aget js/process.env "KOTOBA_LANG") "../../kotoba-lang"))
+
+(def out-dir (or (first *command-line-args*) "out/site"))
+
+(def site (edn/read-string (fs/readFileSync "site/site.edn" "utf8")))
+
+(defn- copy! [from to]
+  (when-not (fs/existsSync from)
+    (throw (js/Error. (str "missing source: " from))))
+  (fs/mkdirSync (path/dirname to) #js {:recursive true})
+  (fs/copyFileSync from to))
+
+(fs/rmSync out-dir #js {:recursive true :force true})
+
+(doseq [f (:vendor site)]
+  (copy! (str "site/vendor/" f) (str out-dir "/vendor/" f)))
+(doseq [{:keys [repo from to]} (:external site)]
+  (let [lib (last (text/split repo #"/" ))]
+    (copy! (str kotoba-lang "/" lib "/" from) (str out-dir "/" to))))
+(doseq [{:keys [from to]} (:sources site)]
+  (copy! from (str out-dir "/" to)))
+
+(def dds-css
+  (fs/readFileSync (or (aget js/process.env "DDS_CSS")
+                       (str kotoba-lang "/jp-go-digital-design-system/resources/jp_go_dds/dds.css"))
+                   "utf8"))
+
+(def document (resolve (symbol (str (get-in site [:page :ns])) (str (get-in site [:page :fn])))))
+
+(def html
+  (document {:css dds-css
+             :vendor-scripts (mapv #(str "vendor/" %) (:vendor site))
+             :scittle-scripts (mapv :to (concat (:external site) (:sources site)))}))
+
+;; 外部リクエストゼロ: src / href はすべて相対でなければならない。
+(let [refs (map second (text/re-seq #"(?:src|href)=\"([^\"]*)\"" html))
+      bad (remove #(text/starts-with? % "./") refs)]
+  (when (seq bad)
+    (throw (js/Error. (str "external or absolute reference: " (pr-str bad))))))
+
+(fs/writeFileSync (str out-dir "/index.html") (str html "\n"))
+(println (str "wrote " out-dir "/index.html (" (count html) " chars) + "
+              (count (:vendor site)) " vendor + " (+ (count (:external site)) (count (:sources site)))
+              " scittle sources"))

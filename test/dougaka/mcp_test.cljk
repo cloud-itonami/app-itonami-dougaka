@@ -1,0 +1,45 @@
+(ns dougaka.mcp-test
+  "MCP の tool 面（dougaka.mcp）。stdin/stdout のループは bin が持つ。"
+  (:require [cljs.test :refer [deftest is testing]]
+            [dougaka.ingest :as ingest]
+            [dougaka.mcp :as mcp]))
+
+(deftest tools-list
+  (let [res (mcp/handle-request {"jsonrpc" "2.0" "id" 1 "method" "tools/list" "params" {}})]
+    (is (= ["dougaka_validate" "dougaka_plan"]
+           (mapv #(get % "name") (get-in res ["result" "tools"]))))))
+
+(deftest validate-tool-ok
+  (let [res (mcp/call-tool "dougaka_validate" {"text" ingest/sample-timeline})
+        body (js->clj (js/JSON.parse (get-in res ["content" 0 "text"])) :keywordize-keys false)]
+    (is (= false (get res "isError")))
+    (is (= true (get body "ok")))))
+
+(deftest validate-tool-rejects-empty
+  (let [res (mcp/call-tool "dougaka_validate" {"text" ""})]
+    (is (= true (get res "isError")))))
+
+(deftest plan-tool-builds-segments
+  (let [res (mcp/call-tool "dougaka_plan" {"text" ingest/sample-timeline "aspect" "portrait"})
+        body (js->clj (js/JSON.parse (get-in res ["content" 0 "text"])) :keywordize-keys false)]
+    (is (= false (get res "isError")))
+    (is (= true (get body "ok")))
+    (is (= 2 (get-in body ["plan" "segment-count"])))
+    (testing "ffmpeg 台本が付く"
+      (is (string? (get body "ffmpeg"))))))
+
+(deftest plan-tool-reports-missing-frame
+  (let [bad "{\"scenes\":[{\"index\":0}],\"assets\":[]}"
+        res (mcp/call-tool "dougaka_plan" {"text" bad})
+        body (js->clj (js/JSON.parse (get-in res ["content" 0 "text"])) :keywordize-keys false)]
+    (is (= false (get res "isError")))
+    (is (= false (get body "ok")))
+    (is (= 1 (count (get body "errors"))))))
+
+(deftest unknown-tool-is-error-result
+  (let [res (mcp/call-tool "nope" {})]
+    (is (= true (get res "isError")))))
+
+(deftest initialize-handshake
+  (let [res (mcp/handle-request {"jsonrpc" "2.0" "id" 1 "method" "initialize" "params" {}})]
+    (is (= "dougaka" (get-in res ["result" "serverInfo" "name"])))))

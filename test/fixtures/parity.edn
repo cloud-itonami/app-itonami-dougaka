@@ -1,0 +1,37 @@
+;; dougaka の parity fixture — guest（aiueos/dougaka_core.cljk）と adapter
+;; （src/dougaka/core.cljk）が同じ入力に同じ i64 を返すことの表。
+;;
+;; 3 か所がこの表を読む / 写す:
+;;   1. test/dougaka/parity_test.cljk   — adapter で全行を照合する（kbb）
+;;   2. aiueos/dougaka_core.cljk の test-* — 同じ行を手で写す（amu test、3 target）
+;;   3. test/guest_parity.mjs            — 同じ表を wasm で回す
+;;
+;; 符号化: aspect portrait=0 landscape=1、不正=-1。真偽は 1/0。
+;; guest は i64 しか扱わないので dims は dims-w / dims-h に分ける。
+[;; aspect-code [n]
+ {:fn "aspect-code" :args [0] :expect 0}
+ {:fn "aspect-code" :args [1] :expect 1}
+ {:fn "aspect-code" :args [9] :expect -1}
+ ;; dims-w [aspect] -> width
+ {:fn "dims-w" :args [0] :expect 720}
+ {:fn "dims-w" :args [1] :expect 1280}
+ {:fn "dims-w" :args [9] :expect -1}
+ ;; dims-h [aspect] -> height
+ {:fn "dims-h" :args [0] :expect 1280}
+ {:fn "dims-h" :args [1] :expect 720}
+ {:fn "dims-h" :args [9] :expect -1}
+ ;; scene-count-ok? [n]
+ {:fn "scene-count-ok?" :args [0] :expect 0}
+ {:fn "scene-count-ok?" :args [1] :expect 1}
+ {:fn "scene-count-ok?" :args [24] :expect 1}
+ {:fn "scene-count-ok?" :args [25] :expect 0}
+ ;; duration-ok? [s]
+ {:fn "duration-ok?" :args [0] :expect 0}
+ {:fn "duration-ok?" :args [60] :expect 1}
+ {:fn "duration-ok?" :args [120] :expect 1}
+ {:fn "duration-ok?" :args [121] :expect 0}
+ ;; shot-ok? [s]
+ {:fn "shot-ok?" :args [0] :expect 0}
+ {:fn "shot-ok?" :args [5] :expect 1}
+ {:fn "shot-ok?" :args [10] :expect 1}
+ {:fn "shot-ok?" :args [11] :expect 0}]

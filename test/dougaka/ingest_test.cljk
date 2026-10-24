@@ -1,0 +1,22 @@
+(ns dougaka.ingest-test
+  "取り込み（dougaka.ingest）の振る舞い。"
+  (:require [cljs.test :refer [deftest is testing]]
+            [dougaka.ingest :as ingest]))
+
+(deftest ingest-sample
+  (let [{:keys [timeline format warnings error]} (ingest/ingest ingest/sample-timeline)]
+    (is (nil? error))
+    (is (= "timeline-json" format))
+    (is (= "sample-shotengai" (get timeline "videoId")))
+    (is (= [] warnings))))
+
+(deftest ingest-errors
+  (testing "空は名前付きの理由"
+    (is (= "empty-input: timeline JSON を貼り付けてください"
+           (:error (ingest/ingest "")))))
+  (testing "壊れた JSON は認識不能"
+    (is (= "unrecognised-input: JSON ではありません"
+           (:error (ingest/ingest "{not json")))))
+  (testing "map 以外は弾く"
+    (is (= "timeline-must-be-a-map"
+           (:error (ingest/ingest "[1,2]"))))))

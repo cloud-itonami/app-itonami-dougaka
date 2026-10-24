@@ -1,0 +1,106 @@
+(ns dougaka.guest
+  "dougaka の判断コア guest — pure。i64 しか扱わないので、文字列・keyword との
+  橋渡しは adapter (dougaka.core) が持つ。parity の表は
+  test/fixtures/parity.edn で、test/dougaka/parity_test.cljk がこの ns を、
+  amu test が guest を、test/guest_parity.mjs が wasm 産物を同じ表で照合する。
+
+  互換の範囲: 本家 dougaka (cloud-itonami/dougaka) の render 計画の形
+  （segments / width / height / fps）の互換。mp4 エンコード・生成 AI・
+  B2/Kotobase への接続はしない。
+
+  test-* は test/fixtures/parity.edn の 21 行を関数ごとに 1 本へ写したもの
+  （aspect/dims 9 / scene-count 4 / duration 4 / shot 4）。表を変えたらここも変える。
+  test/dougaka/parity_test.cljk がこの関数別件数を表と照合する。
+
+  テストはゼロ引数 `test-*`（戻り 1/0。true 返しは通らない）。実行:
+    <kotoba-lang>/amu/bin/amu test aiueos/dougaka_core.cljk"
+  (:export [main aspect-code dims-w dims-h scene-count-ok? duration-ok?
+            shot-ok? empty-score
+            test-aspect-dims test-scene-count-gate test-duration-gate
+            test-shot-gate]))
+
+(defn main [] :i64
+  0)
+
+;; ───────── 定数（guest と adapter で共有） ─────────
+
+(defn max-scenes [] 24)
+(defn max-duration-sec [] 120)
+(defn max-shot-sec [] 10)
+
+(defn portrait-w [] 720)
+(defn portrait-h [] 1280)
+(defn landscape-w [] 1280)
+(defn landscape-h [] 720)
+(defn default-fps [] 30)
+
+;; ───────── 判定（parity の対象） ─────────
+
+(defn aspect-code
+  "aspect 文字列 -> code。portrait=0 landscape=1、不正は -1。"
+  [landscape?]
+  (if (= landscape? 1) 1 (if (= landscape? 0) 0 -1)))
+
+(defn dims-w
+  "aspect code -> width。portrait=720 landscape=1280、不正は -1。"
+  [aspect]
+  (cond (= aspect 0) (portrait-w)
+        (= aspect 1) (landscape-w)
+        :else -1))
+
+(defn dims-h
+  "aspect code -> height。portrait=1280 landscape=720、不正は -1。"
+  [aspect]
+  (cond (= aspect 0) (portrait-h)
+        (= aspect 1) (landscape-h)
+        :else -1))
+
+(defn scene-count-ok?
+  "scene 数 n が 1..max-scenes なら 1、そうでなければ 0。"
+  [n]
+  (if (and (>= n 1) (<= n (max-scenes))) 1 0))
+
+(defn duration-ok?
+  "合計秒数 s が 1..max-duration-sec なら 1、そうでなければ 0。"
+  [s]
+  (if (and (>= s 1) (<= s (max-duration-sec))) 1 0))
+
+(defn shot-ok?
+  "1 ショットの秒数 s が 1..max-shot-sec なら 1、そうでなければ 0。"
+  [s]
+  (if (and (>= s 1) (<= s (max-shot-sec))) 1 0))
+
+(defn empty-score
+  "空 timeline の plan 可否: scene 数 0 は作れないので 0。"
+  [n]
+  (if (>= n 1) 1 0))
+
+;; ───────── テスト ─────────
+;; amu test が拾う test-*（:jvm-kir :js :wasm で走る）。
+
+(defn test-aspect-dims [] :i64
+  (if (and (= (aspect-code 0) 0) (= (aspect-code 1) 1) (= (aspect-code 9) -1)
+            (= (dims-w 0) 720) (= (dims-w 1) 1280) (= (dims-w 9) -1)
+            (= (dims-h 0) 1280) (= (dims-h 1) 720) (= (dims-h 9) -1))
+    1 0))
+
+(defn test-scene-count-gate [] :i64
+  (if (and (= (scene-count-ok? 0) 0)
+            (= (scene-count-ok? 1) 1)
+            (= (scene-count-ok? 24) 1)
+            (= (scene-count-ok? 25) 0))
+    1 0))
+
+(defn test-duration-gate [] :i64
+  (if (and (= (duration-ok? 0) 0)
+            (= (duration-ok? 60) 1)
+            (= (duration-ok? 120) 1)
+            (= (duration-ok? 121) 0))
+    1 0))
+
+(defn test-shot-gate [] :i64
+  (if (and (= (shot-ok? 0) 0)
+            (= (shot-ok? 5) 1)
+            (= (shot-ok? 10) 1)
+            (= (shot-ok? 11) 0))
+    1 0))

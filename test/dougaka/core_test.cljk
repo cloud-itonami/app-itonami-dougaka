@@ -1,0 +1,69 @@
+(ns dougaka.core-test
+  "計画モデル（dougaka.core）の振る舞い。本家 douga.ffmpeg/build-render-plan と同形。"
+  (:require [cljs.test :refer [deftest is testing]]
+            [dougaka.core :as core]))
+
+(def sample-timeline
+  {"videoId" "t1" "scenes" [{"index" 0} {"index" 1}]
+   "assets" [{"kind" "scene" "blobKey" "frame-0" "meta" {"sceneIndex" 0}}
+             {"kind" "scene" "blobKey" "frame-1" "meta" {"sceneIndex" 1}}
+             {"kind" "bgm" "blobKey" "bgm-0"}]
+   "lines" [{"sceneIndex" 0 "lineIndex" 0 "voiceBlobKey" "v-0" "speaker" "left" "text" "おはよう"}
+            {"sceneIndex" 0 "lineIndex" 1 "voiceBlobKey" "v-1" "speaker" "right" "text" "商店街"}]})
+
+(deftest validate-ok-timeline
+  (let [{:keys [ok? errors]} (core/validate sample-timeline)]
+    (is (= true ok?))
+    (is (= [] errors))))
+
+(deftest validate-missing-frame
+  (let [tl (assoc sample-timeline "assets" [])
+        {:keys [ok? errors]} (core/validate tl)]
+    (is (= false ok?))
+    (is (= 1 (count errors)))
+    (testing "足りない scene が分かる"
+      (is (re-find #"missing-scene-frames" (first errors))))))
+
+(deftest validate-scene-count-gate
+  (let [tl (assoc sample-timeline "scenes" [])
+        {:keys [ok?]} (core/validate tl)]
+    (is (= false ok?)))
+  (let [tl (assoc sample-timeline "scenes" (vec (map (fn [i] {"index" i}) (range 25))))
+        {:keys [ok?]} (core/validate tl)]
+    (is (= false ok?))))
+
+(deftest build-plan-shape
+  (let [plan (core/build-plan sample-timeline {:aspect 0})]
+    (is (= "t1" (get plan "video-id")))
+    (is (= "portrait" (get plan "aspect")))
+    (is (= 720 (get plan "width")))
+    (is (= 1280 (get plan "height")))
+    (is (= 30 (get plan "fps")))
+    (is (= 2 (get plan "segment-count")))
+    (is (= "bgm-0" (get plan "bgm-blob-key")))
+    (let [s0 (first (get plan "segments"))]
+      (is (= 0 (get s0 "scene-index")))
+      (is (= "frame-0" (get s0 "frame-blob-key")))
+      (is (= ["v-0" "v-1"] (get s0 "voice-blob-keys")))
+      (is (= ["おはよう" "商店街"] (get s0 "texts"))))
+    (testing "voices は line 順"
+      (is (= ["left" "right"] (get (first (get plan "segments")) "speakers"))))))
+
+(deftest build-plan-drops-scenes-without-frame
+  (let [plan (core/build-plan {"scenes" [{"index" 0} {"index" 1}]
+                               "assets" [{"kind" "scene" "blobKey" "f1" "meta" {"sceneIndex" 1}}]}
+                              {:aspect 1})]
+    (is (= 1 (get plan "segment-count")))
+    (is (= "landscape" (get plan "aspect")))
+    (is (= 1280 (get plan "width")))))
+
+(deftest guest-parity-gates
+  (is (= 0 (core/aspect-code "portrait")))
+  (is (= 1 (core/aspect-code "landscape")))
+  (is (= -1 (core/aspect-code "nope")))
+  (is (= [720 1280] (core/dims 0)))
+  (is (= [1280 720] (core/dims 1)))
+  (is (= 1 (core/scene-count-ok? 24)))
+  (is (= 0 (core/scene-count-ok? 25)))
+  (is (= 1 (core/duration-ok? 120)))
+  (is (= 0 (core/duration-ok? 121))))

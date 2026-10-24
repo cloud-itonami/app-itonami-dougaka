@@ -1,0 +1,57 @@
+#!/usr/bin/env kbb
+;; dougaka の MCP stdio サーバ。java も clojure も起動しない。
+;;
+;; itonami agent は呼び出しのたびにこのプロセスを 1 つ起動し、stdin に
+;; initialize → notifications/initialized → 要求 の 3 行を書いて閉じる。だから
+;; ここは行ごとに応答し、stdin の EOF で終わる（exit 0）。stdout には JSON-RPC の
+;; 行だけを書き、診断は stderr へ出す。中身（tool と判定）は src/dougaka/mcp.cljk。
+;;
+;; ## 依存は repo の nbb.edn の pin から取る
+;;
+;; kbb の既定 classpath は west の兄弟 checkout（`kotoba-lang/text/src`）を含み、
+;; `add-classpath` は末尾に足すだけなので、手元の checkout が作業中のブランチに
+;; あればそちらが勝つ。kbb は cwd の nbb.edn の :deps
+;; （kotoba-lang/text の固定 sha）を先に置くので、cwd がこの repo でなければ、
+;; repo を cwd にして自分を起動し直す。stdin / stdout はそのまま子に渡す。
+
+(ns dougaka-mcp
+  (:require ["node:child_process" :as cp]
+            ["node:fs" :as fs]
+            ["node:path" :as path]
+            ["node:readline" :as readline]
+            [nbb.core :refer [*file*]]))
+
+(def app-directory
+  (fs/realpathSync (path/resolve (path/dirname *file*) "..")))
+
+(def ^:private reexec-env "DOUGAKA_MCP_REEXEC")
+
+(defn- cwd-is-app? []
+  (= (fs/realpathSync (js/process.cwd)) app-directory))
+
+(when-not (cwd-is-app?)
+  (if (aget js/process.env reexec-env)
+    (do (.write js/process.stderr "dougaka-mcp: cwd is not the repository after re-exec\n")
+        (js/process.exit 70))
+    (let [r (cp/spawnSync "kbb" #js [(path/join app-directory "bin" "dougaka-mcp")]
+                          #js {:cwd app-directory
+                               :stdio "inherit"
+                               :env (js/Object.assign #js {} js/process.env
+                                                      (clj->js {reexec-env "1"}))})]
+      (when-let [e (.-error r)]
+        (.write js/process.stderr (str "dougaka-mcp: could not start kbb: " (.-message e) "\n")))
+      (js/process.exit (if (number? (.-status r)) (.-status r) 1)))))
+
+(require '[dougaka.mcp :as mcp])
+
+(let [rl (.createInterface readline #js {:input js/process.stdin :terminal false})]
+  (.on rl "line"
+       (fn [line]
+         (try
+           (when-let [out (mcp/handle-line line)]
+             (.write js/process.stdout (str out "\n")))
+           (catch :default e
+             (.write js/process.stderr (str "dougaka-mcp: " (.-message e) "\n"))))))
+  ;; EOF: 何もしないで終わる。process.exit を呼ぶと、macOS のパイプでは書きかけの
+  ;; stdout が切れることがある —— イベントループが空になれば exit 0 で終わる。
+  (.on rl "close" (fn [] nil)))

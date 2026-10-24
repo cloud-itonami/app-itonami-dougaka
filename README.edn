@@ -1,0 +1,4 @@
+{:schema "etzhayyim.repository/v1"
+ :name "app-itonami-dougaka"
+ :kind :app
+ :canonical-metadata :edn}

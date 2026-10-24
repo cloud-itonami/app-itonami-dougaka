@@ -1,0 +1,189 @@
+(ns dougaka.core
+  "dougaka の adapter — guest（aiueos/dougaka_core.cljk, ns `dougaka.guest`）と
+  **同名・同引数順・同結果**の判定関数と、その上の純粋な render 計画モデル。
+
+  本家 dougaka (cloud-itonami/dougaka) の render グラフは timeline を受けて
+  ffmpeg の組み立て計画（segments / width / height / fps）を作る。ここでは
+  その計画部だけを純関数として持つ。mp4 エンコード・生成 AI・B2/Kotobase への
+  接続はしない。
+
+  ブラウザでは scittle がこのファイルをそのまま評価する（.cljs として配る）。
+  使うのは clojure.core と kotoba.lang.text だけ。"
+  (:require [kotoba.lang.text :as text]))
+
+;; ───────── guest と同じ判定（parity の対象） ─────────
+
+(def max-scenes 24)
+(def max-duration-sec 120)
+(def max-shot-sec 10)
+
+(defn aspect-code
+  "aspect 文字列 -> code。portrait=0 landscape=1、不正は -1。"
+  [aspect]
+  (let [a (text/lower (str (or aspect "")))]
+    (cond (or (= a "portrait") (= a "9:16") (= a "vertical")) 0
+          (or (= a "landscape") (= a "16:9") (= a "horizontal")) 1
+          :else -1)))
+
+(defn dims-w
+  "aspect code -> width。portrait=720 landscape=1280、不正は -1（guest と同名・同結果）。"
+  [aspect]
+  (cond (= aspect 0) 720
+        (= aspect 1) 1280
+        :else -1))
+
+(defn dims-h
+  "aspect code -> height。portrait=1280 landscape=720、不正は -1（guest と同名・同結果）。"
+  [aspect]
+  (cond (= aspect 0) 1280
+        (= aspect 1) 720
+        :else -1))
+
+(defn dims
+  "aspect code -> [w h]。不正は [-1 -1]。"
+  [aspect]
+  [(dims-w aspect) (dims-h aspect)])
+
+(defn scene-count-ok? [n] (if (and (>= n 1) (<= n max-scenes)) 1 0))
+(defn duration-ok? [s] (if (and (>= s 1) (<= s max-duration-sec)) 1 0))
+(defn shot-ok? [s] (if (and (>= s 1) (<= s max-shot-sec)) 1 0))
+(defn empty-score [n] (if (>= n 1) 1 0))
+
+;; ───────── 入力の読み替え（keyword / 文字列の両方を受ける） ─────────
+
+(defn- v [m & ks]
+  (some #(get m %) ks))
+
+(defn- scene-index [scene]
+  (long (or (v scene :index :scene_index "index" "scene_index") 0)))
+
+(defn aspect-of
+  "timeline から aspect を読む。既定は portrait。"
+  [timeline]
+  (let [a (v timeline :aspect "aspect")]
+    (if (= -1 (aspect-code a)) 0 (aspect-code a))))
+
+;; ───────── 検証 ─────────
+
+(defn validate
+  "timeline map -> {:ok? bool :errors [..]}。本家 DougakaGovernor の HARD gate の
+  うち、ブラウザで決められる分だけを見る（no-actuation / content-veto /
+  likeness / unprovenanced-asset / budget はここでは見ない）。"
+  [timeline]
+  (let [errs (atom [])]
+    (when (not (map? timeline))
+      (swap! errs conj "timeline-must-be-a-map"))
+    (let [tl (if (map? timeline) timeline {})
+          scenes (or (v tl :scenes "scenes") [])
+          assets (or (v tl :assets "assets") [])
+          n (count scenes)]
+      (when (not (vector? scenes))
+        (swap! errs conj "scenes-must-be-a-vector"))
+      (when (= 0 (scene-count-ok? n))
+        (swap! errs conj (str "scene-count-out-of-range: " n " (1.." max-scenes ")")))
+      (when (> n 0)
+        (let [total (* n 3)]
+          (when (= 0 (duration-ok? total))
+            (swap! errs conj (str "estimated-duration-out-of-range: ~" total "s")))))
+      (let [scene-frames
+            (reduce (fn [acc a]
+                      (let [kind (v a :kind "kind")
+                            blob (or (v a :blobKey :blob-key "blobKey" "blob_key") "")
+                            meta (let [m (v a :meta "meta")] (if (map? m) m {}))
+                            si (v meta :sceneIndex :scene-index "sceneIndex" "scene_index")]
+                        (if (and (= kind "scene") (seq blob) (some? si))
+                          (assoc acc (long si) blob)
+                          acc)))
+                    {} assets)
+            missing (remove #(contains? scene-frames (scene-index %)) scenes)]
+        (when (seq missing)
+          (swap! errs conj (str "missing-scene-frames: "
+                                (text/join "," (map #(str (scene-index %)) missing)))))))
+    {:ok? (empty? @errs) :errors @errs}))
+
+;; ───────── 計画（本家 build-render-plan と同形） ─────────
+
+(defn build-plan
+  "timeline + opts({:aspect}) -> render plan map（文字列キー）。
+  本家 douga.ffmpeg/build-render-plan と同形の segments / width / height / fps。
+  scenes に対応する scene frame の無いものは落とす。voices は line 順。"
+  ([timeline] (build-plan timeline {}))
+  ([timeline opts]
+   (let [tl (or timeline {})
+         scenes (or (v tl :scenes "scenes") [])
+         lines (or (v tl :lines "lines") [])
+         assets (or (v tl :assets "assets") [])
+         aspect (or (:aspect opts) (aspect-of tl))
+         [w h] (dims aspect)
+         fps (long (or (v tl :fps "fps") 30))
+         video-id (or (v tl :videoId :video-id :video_id "videoId" "video_id")
+                      (str "dougaka-" (hash (pr-str tl))))
+         frame-by-scene
+         (reduce (fn [acc a]
+                   (let [kind (v a :kind "kind")
+                         blob (or (v a :blobKey :blob-key "blobKey" "blob_key") "")
+                         meta (let [m (v a :meta "meta")] (if (map? m) m {}))
+                         si (v meta :sceneIndex :scene-index "sceneIndex" "scene_index")]
+                     (if (and (= kind "scene") (seq blob) (some? si))
+                       (assoc acc (long si) blob)
+                       acc)))
+                 {} assets)
+         bgm (some (fn [a]
+                     (let [kind (v a :kind "kind")
+                           blob (or (v a :blobKey :blob-key "blobKey" "blob_key") "")]
+                       (when (and (= kind "bgm") (seq blob)) blob)))
+                   assets)
+         voices
+         (reduce (fn [acc line]
+                   (let [si (long (or (v line :sceneIndex :scene-index "sceneIndex" "scene_index") 0))
+                         li (long (or (v line :lineIndex :line-index "lineIndex" "line_index") 0))
+                         vk (v line :voiceBlobKey :voice-blob-key "voiceBlobKey" "voice_blob_key")
+                         spk (-> (or (v line :speaker "speaker") "left") str text/trim text/lower)
+                         t (-> (or (v line :text "text") "") str text/trim)]
+                     (if (seq vk) (update acc si (fnil conj []) [li vk t spk]) acc)))
+                 {} lines)
+         order (sort (set (concat (map scene-index scenes) (keys frame-by-scene))))
+         segments
+         (vec (keep (fn [si]
+                      (when-let [frame (get frame-by-scene si)]
+                        (let [ordered (sort-by first (get voices si []))]
+                          {"scene-index" si
+                           "frame-blob-key" frame
+                           "voice-blob-keys" (mapv second ordered)
+                           "texts" (mapv #(nth % 2) ordered)
+                           "speakers" (mapv #(nth % 3) ordered)})))
+                    order))]
+     {"video-id" video-id
+      "aspect" (if (= aspect 1) "landscape" "portrait")
+      "width" w "height" h "fps" fps
+      "segments" segments
+      "segment-count" (count segments)
+      "bgm-blob-key" bgm
+      "output-mp4" nil
+      "note" "dougaka dapp は ffmpeg の組み立て計画だけ作る。mp4 エンコードはしない。"})))
+
+;; ───────── ffmpeg argv（表示用。実行はしない） ─────────
+
+(defn scene-segment-cmd
+  "1 セグメントの ffmpeg argv（表示用）。"
+  [frame-path audio-path out-path {:keys [width height fps]}]
+  ["ffmpeg" "-y" "-loop" "1" "-i" frame-path "-i" audio-path
+   "-vf" (str "scale=" width ":" height ":force_original_aspect_ratio=decrease,"
+              "pad=" width ":" height ":(ow-iw)/2:(oh-ih)/2,setsar=1")
+   "-r" (str fps) "-shortest" "-c:v" "libx264" "-pix_fmt" "yuv420p" "-c:a" "aac" out-path])
+
+(defn concat-segments-cmd [list-path out-path]
+  ["ffmpeg" "-y" "-f" "concat" "-safe" "0" "-i" list-path "-c" "copy" out-path])
+
+(defn plan-commands
+  "plan -> 表示用の ffmpeg argv 一覧。"
+  [plan]
+  (let [w (get plan "width") h (get plan "height") fps (get plan "fps")
+        segs (get plan "segments")]
+    {:segments (mapv (fn [s i]
+                       (scene-segment-cmd (get s "frame-blob-key")
+                                          (or (first (get s "voice-blob-keys")) "silence.wav")
+                                          (str "segment_" i ".mp4")
+                                          {:width w :height h :fps fps}))
+                     segs (range))
+     :concat (concat-segments-cmd "segments.txt" "out.mp4")}))

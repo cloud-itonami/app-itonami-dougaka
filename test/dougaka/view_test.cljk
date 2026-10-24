@@ -1,0 +1,24 @@
+(ns dougaka.view-test
+  "画面（dougaka.view）の純関数。SSR と同じ初期描画が壊れていないこと。"
+  (:require [cljs.test :refer [deftest is testing]]
+            [dougaka.view :as view]))
+
+(deftest initial-renders
+  (let [h (view/main view/initial-model)]
+    (testing "hiccup ベクタ"
+      (is (vector? h)))
+    (testing "道具名が入る"
+      (is (some? (re-find #"dougaka" (pr-str h)))))
+    (testing "送信しない旨が読める"
+      (is (some? (re-find #"送信" (pr-str h)))))))
+
+(deftest plan-renders-segments
+  (let [plan {"video-id" "v1" "aspect" "portrait" "width" 720 "height" 1280 "fps" 30
+              "segment-count" 1
+              "segments" [{"scene-index" 0 "frame-blob-key" "f0"
+                           "voice-blob-keys" ["v0"] "texts" ["おはよう"] "speakers" ["left"]}]
+              "bgm-blob-key" nil "output-mp4" nil "note" ""}
+        h (view/main (assoc view/initial-model :plan plan :report {:errors []}))]
+    (testing "frame と台本が描かれる"
+      (is (some? (re-find #"f0" (pr-str h))))
+      (is (some? (re-find #"おはよう" (pr-str h)))))))
