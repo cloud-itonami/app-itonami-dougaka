@@ -50,8 +50,8 @@ Murakumo の access token はブラウザのタブ内メモリにのみ保持す
 - **Higgsfield 固有の管理機能の完全互換** — project/brand/canvas/marketing
   等は現時点で未実装。Itonami の production/verified モデルに限って制作する。
 - **ライブ生成と独自ドメイン公開** — トークン付き生成・実成果物は未検証。
-  `dougaka.itonami.app` は配信側で provisioning と宣言されており、DNSLink と
-  静的公開物の実配信・ブラウザ上の readback を通るまで公開済みと扱わない。
+  own-node IPFS/Kubo 向け静的候補の CID はローカルで再現したが、pin、IPNS、
+  DNSLink と HTTPS のブラウザ readback を通るまで公開済みと扱わない。
 
 ## 実測
 

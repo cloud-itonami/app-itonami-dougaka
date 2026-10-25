@@ -1,6 +1,6 @@
-;; ローカルの公開物を組む —— network-awai/cloud-itonami の生成器と同じ契約
-;; （site/site.edn）を、共通クロームを被せずに実行する。プレビューと
-;; スモークテスト用で、公開の正本は cloud-itonami 側の生成器。
+;; 単独ドメイン向けの静的公開物を組む —— site/site.edn の宣言から、
+;; 共通クロームを被せずに out/site を生成する。own-node IPFS/Kubo の
+;; 公開候補はこのバイト列を使う。公開は pin と配信 readback を別途要する。
 ;;
 ;;   kbb --backend sci \
 ;;     --classpath "src:site:../../kotoba-lang/text/src:../../kotoba-lang/jp-go-digital-design-system/src:../../kotoba-lang/html/src:../../kotoba-lang/css/src" \
