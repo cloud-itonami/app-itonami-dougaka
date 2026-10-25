@@ -12,7 +12,7 @@ const modelId = model => clean(model?.id ?? model?.['id']);
 const modelStatus = model => clean(model?.status ?? model?.['status']);
 
 export function modelsFor(catalog, mode) {
-  if (catalog?.configured !== true) return [];
+  if (catalog?.configured === false) return [];
   const entries = catalog?.modalities?.[modes[mode]?.catalog] ?? [];
   if (!Array.isArray(entries)) return [];
   return entries.flatMap(entry => Array.isArray(entry?.models) ? entry.models : [])

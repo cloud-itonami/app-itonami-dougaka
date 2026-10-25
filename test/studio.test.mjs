@@ -12,6 +12,8 @@ test('Murakumo catalog determines selectable modes without a bundled model guess
     { id: 'wan2.2-ti2v-5b', status: 'verified' }, { id: 'broken-model', status: 'broken' },
   ]);
   assert.deepEqual(modelsFor({ ...catalog, configured: false }, 'video'), []);
+  const { configured: _ignored, ...oldCatalog } = catalog;
+  assert.equal(modelsFor(oldCatalog, 'video').length, 2);
 });
 
 test('generation requests have Murakumo modality shapes', () => {

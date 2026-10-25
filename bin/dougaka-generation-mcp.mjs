@@ -76,7 +76,7 @@ async function call(name, args) {
   if (name === 'dougaka_models') {
     exactArgs(args, []);
     const catalog = await request('/api/v1/generation/catalog');
-    return result({ configured: catalog.configured === true, execute: catalog.execute, modalities: catalog.modalities });
+    return result({ configured: catalog.configured ?? null, execute: catalog.execute ?? 'unknown', modalities: catalog.modalities });
   }
   if (name.startsWith('dougaka_generate_')) {
     const mode = name.slice('dougaka_generate_'.length);
@@ -84,7 +84,7 @@ async function call(name, args) {
     exactArgs(args, ['prompt', 'model', 'seconds', 'aspect', 'seed'], ['prompt', 'model']);
     requireToken();
     const catalog = await request('/api/v1/generation/catalog');
-    if (catalog.configured !== true) throw Error('Murakumo generation is not configured');
+    if (catalog.configured === false) throw Error('Murakumo generation is not configured');
     const model = modelsFor(catalog, mode).find(entry => entry.id === args.model);
     if (!model || !['production', 'verified'].includes(model.status)) throw Error('model is not verified for this modality');
     const body = buildGenerationRequest({ mode, prompt: args.prompt, model: args.model,

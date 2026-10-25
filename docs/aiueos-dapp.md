@@ -37,8 +37,9 @@ Murakumo の公開 generation API に直接接続する。dapp origin は静的�
 | `/xrpc` の auth 境界 | 無し（ローカルに鍵を持たない） | — |
 
 Murakumo の access token はブラウザのタブ内メモリにのみ保持する。入力した token を
-アプリ origin に送らない。生成サービスが `configured=false` の場合はモデルを
-選択可能にしない。生成実行と公開経路は別に検証する。
+アプリ origin に送らない。生成サービスが `configured=false` を明示した場合は
+モデルを選択可能にしない。2026-10-25 の live catalog は `configured` を返さないため、
+その場合は実行可否を未確認と表示し、ジョブ応答で判断する。
 
 ## 未実装
 

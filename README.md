@@ -28,7 +28,7 @@
 | timeline MCP | `bin/dougaka-mcp`（stdio）+ `src/dougaka/mcp.cljk` | **実装済み・実測**：validate / plan |
 | 生成 MCP | `bin/dougaka-generation-mcp.mjs` | **実装済み・ローカル検査**：モデル、五つの生成、状態・中止・保存。トークンを使う実生成は未検証 |
 | 分散状態 | ADR 0005 の `mon` / `ito` / `nuno` | **未実装**（設計のみ。docs/aiueos-dapp.md） |
-| Murakumo 生成 | ブラウザから直接接続。トークンはタブのメモリのみ | 公開カタログが `configured` を返さなければ生成を止める。動画は 1 ジョブ約 5 秒まで |
+| Murakumo 生成 | ブラウザから直接接続。トークンはタブのメモリのみ | `configured=false` の明示時は停止。フィールドが無い live catalog では実行可否を未確認と表示。動画は 1 ジョブ約 5 秒まで |
 
 詳細な実測と「動かない」ものは [`docs/aiueos-dapp.md`](docs/aiueos-dapp.md)。
 

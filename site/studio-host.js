@@ -134,7 +134,7 @@ function renderMode() {
     const preferred = models.find(model => ['production', 'verified'].includes(model.status));
     select.value = preferred?.id ?? '';
   }
-  $('studio-model-count').textContent = `${models.filter(model => ['production', 'verified'].includes(model.status)).length} モデル利用可能`;
+  $('studio-model-count').textContent = `${models.filter(model => ['production', 'verified'].includes(model.status)).length} 候補モデル`;
   $('studio-generate').disabled = !select.value || !state.token;
 }
 
@@ -181,7 +181,12 @@ $('studio-disconnect').addEventListener('click', () => {
 $('studio-catalog').addEventListener('click', event => run(event.currentTarget, async () => {
   const catalog = await jsonResponse(await invoke('catalog', `${generationOrigin}/api/v1/generation/catalog`));
   state.catalog = catalog; renderMode();
-  setMessage(catalog.configured === true ? 'モデルカタログを取得しました。' : 'Murakumo の生成サービスは現在未設定です。モデルは選択できません。', catalog.configured !== true);
+  const message = catalog.configured === false
+    ? 'Murakumo の生成サービスは未設定です。モデルは選択できません。'
+    : catalog.configured === true
+      ? 'モデルカタログを取得しました。実行はジョブ応答で確認します。'
+      : 'モデル一覧を取得しました。サービスの実行可否は応答に無いため、生成ジョブの結果で確認します。';
+  setMessage(message, catalog.configured === false);
 }));
 $('studio-model').addEventListener('change', renderMode);
 $('studio-generate').addEventListener('click', event => run(event.currentTarget, async () => {
