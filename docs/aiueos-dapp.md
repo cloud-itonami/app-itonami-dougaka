@@ -21,6 +21,8 @@
   `site/site.edn` で pin し、生成サービスへの操作を一件ずつ承認する。
 - `bin/dougaka-generation-mcp.mjs` — 別の、効果を持つ生成 MCP。tool 承認と
   ブラウザ同意は互いに流用しない。
+- `bin/dougaka-auto-publish.mjs` — scoped token を使う agent/CLI の無人経路。
+  成果物を検証し、own-node Kubo で不変 CID を発行する。ドメインは変更しない。
 
 ## timeline 計画と制作の境界
 
@@ -52,6 +54,8 @@ Murakumo の access token はブラウザのタブ内メモリにのみ保持す
 - **ライブ生成と独自ドメイン公開** — トークン付き生成・実成果物は未検証。
   own-node IPFS/Kubo 向け静的候補の CID は pin と P2P 読戻しまで確認した。
   IPNS、DNSLink と HTTPS のブラウザ readback を通るまで独自ドメイン公開済みと扱わない。
+- **MCP/CLI の結合経路** — ローカルの状態遷移と再送防止はテスト済み。
+  generation-scope token が無いため、実ジョブから CID 発行までの実測は未完。
 
 ## 実測
 

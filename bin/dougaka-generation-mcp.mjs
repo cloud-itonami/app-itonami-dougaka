@@ -2,10 +2,11 @@
 // Separate effectful MCP rail. Browser consent does not authorize these calls.
 // Operators provide a generation-scope token to this process at launch.
 import { createHash } from 'node:crypto';
-import { writeFile } from 'node:fs/promises';
+import { readFile, stat, writeFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { createInterface } from 'node:readline';
 import { buildGenerationRequest, jobIdFrom, modelsFor, modes, artifactDigest } from '../site/studio-core.js';
+import { fileJournal, preflightPublication, publishConfigured, runAutoPublish } from './dougaka-auto-publish-core.mjs';
 
 const origin = 'https://generation.murakumo.cloud';
 const token = process.env.MURAKUMO_GENERATION_TOKEN?.trim() ?? '';
@@ -36,6 +37,17 @@ const tools = [
     inputSchema: { type: 'object', properties: { job_id: string('Opaque job id.') }, required: ['job_id'], additionalProperties: false } },
   { name: 'dougaka_save_artifact', description: 'Download a finished artifact, verify SHA-256, and write it to DOUGAKA_OUTPUT_DIR. Requires an existing writable output directory.',
     inputSchema: { type: 'object', properties: { job_id: string('Opaque job id.') }, required: ['job_id'], additionalProperties: false } },
+  { name: 'dougaka_generate_and_publish', description: 'Unattended generation, verified download, local Kubo pin, readback and public IPFS provider announcement. Requires a scoped token and existing output, journal and Kubo directories. A request_id is never resubmitted after an ambiguous outcome. This does not change DNS or IPNS.',
+    inputSchema: { type: 'object', properties: {
+      request_id: string('Unique idempotency journal key; reuse it to resume the same request.'),
+      mode: string('Generation mode.', { enum: Object.keys(modes) }),
+      prompt: string('Prompt or speech text.', { maxLength: 12000 }),
+      model: string('Self-hosted production or verified model id.'),
+      seconds: { type: 'number', minimum: 1, maximum: 120 },
+      aspect: string('Image layout.', { enum: ['16:9', '9:16', '1:1'] }),
+      seed: { type: 'integer', minimum: 0, maximum: 2147483647 },
+    }, required: ['request_id', 'mode', 'prompt', 'model'], additionalProperties: false },
+  },
 ];
 
 function exactArgs(args, allowed, required = []) {
@@ -72,6 +84,30 @@ async function request(path, method = 'GET', body = undefined, binary = false) {
 }
 
 async function call(name, args) {
+  if (name === 'dougaka_generate_and_publish') {
+    requireToken();
+    for (const key of ['DOUGAKA_OUTPUT_DIR', 'DOUGAKA_RUN_DIR']) {
+      const value = process.env[key];
+      if (!value || !(await stat(resolve(value))).isDirectory()) throw Error(`${key} must name an existing directory`);
+    }
+    await preflightPublication();
+    const subcall = async (tool, parameters) => {
+      const response = await call(tool, parameters);
+      if (response.isError) throw Error(response.structuredContent?.error
+        ?? response.content?.[0]?.text ?? 'MCP call failed');
+      return response.structuredContent;
+    };
+    const journal = fileJournal(process.env.DOUGAKA_RUN_DIR);
+    try {
+      return result(await runAutoPublish(args, { call: subcall, publish: publishConfigured,
+        journal, maxPolls: 4, pollMs: 5000 }));
+    } catch (error) {
+      if (error.message !== 'job is still running; retry with the same request_id') throw error;
+      const saved = await journal.read(args.request_id);
+      return result({ status: 'pending', request_id: args.request_id,
+        job_id: saved.job_id, retry_after_ms: 5000 });
+    }
+  }
   if (name === 'dougaka_models') {
     exactArgs(args, []);
     const catalog = await request('/api/v1/generation/catalog');
@@ -122,8 +158,16 @@ async function call(name, args) {
     if (!ext) throw Error('unsupported artifact content type');
     const target = join(resolve(outputDir), `${id}.${ext}`);
     // Exclusive create protects a previously reviewed output from replacement.
-    await writeFile(target, bytes, { flag: 'wx', mode: 0o600 });
-    return result({ job_id: id, path: target, bytes: bytes.length, sha256: actual, content_type: type });
+    let already_exists = false;
+    try { await writeFile(target, bytes, { flag: 'wx', mode: 0o600 }); }
+    catch (error) {
+      if (error.code !== 'EEXIST') throw error;
+      if (createHash('sha256').update(await readFile(target)).digest('hex') !== expected)
+        throw Error('existing artifact SHA-256 mismatch');
+      already_exists = true;
+    }
+    return result({ job_id: id, path: target, bytes: bytes.length, sha256: actual,
+      content_type: type, already_exists });
   }
   throw Error('unknown tool');
 }
