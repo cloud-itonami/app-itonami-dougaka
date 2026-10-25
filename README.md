@@ -7,8 +7,9 @@
 
 公開先は `dougaka.itonami.app` を予定し、既存 own-node IPFS/Kubo から
 `out/site/` の静的バンドルを配る方針。この repo が中身と公開物の宣言
-（`site/site.edn`）を持つ。候補 CID はローカルで再現済みだが、own-node の pin、
-IPNS/DNSLink、HTTPS の読み戻しは未完了。旧 `itonami.cloud/sites/app/dougaka/`
+（`site/site.edn`）を持つ。候補 CID は own-node に pin し、別の Kubo から
+P2P で 18 ファイルを読み戻して照合済み。IPNS/DNSLink と独自ドメインの
+HTTPS 読み戻しは未完了。旧 `itonami.cloud/sites/app/dougaka/`
 は別の配信面で、公開判定には使わない。
 
 従来の timeline JSON → ffmpeg 組み立て計画も画面下部に残す。その計画機能は
@@ -27,7 +28,7 @@ IPNS/DNSLink、HTTPS の読み戻しは未完了。旧 `itonami.cloud/sites/app/
 | 書き出し | `src/dougaka/export.cljk` — 計画 JSON + ffmpeg 台本 + 要約 | **実装済み・実測**（kbb） |
 | 制作画面 | `site/studio-host.js` + `studio-core.js` + `studio-contract.js` | **実装済み**：ローカル配信で五つのタブと同意・拒否を確認。実生成は未検証 |
 | timeline 画面 | `src/dougaka/view.cljk` + `site/app.cljk` | **実装済み**：従来の計画機能を折りたたみ内に維持 |
-| 公開物の宣言 | `site/site.edn`、`site/dougaka/page.cljk`、`site/vendor/`（+ `PROVENANCE.edn`） | 宣言済み。own-node への pin・独自ドメイン公開は未完了 |
+| 公開物の宣言 | `site/site.edn`、`site/dougaka/page.cljk`、`site/vendor/`（+ `PROVENANCE.edn`） | 宣言済み。own-node pin と別 Kubo からの読戻し済み。独自ドメイン公開は未完了 |
 | timeline MCP | `bin/dougaka-mcp`（stdio）+ `src/dougaka/mcp.cljk` | **実装済み・実測**：validate / plan |
 | 生成 MCP | `bin/dougaka-generation-mcp.mjs` | **実装済み・ローカル検査**：モデル、五つの生成、状態・中止・保存。トークンを使う実生成は未検証 |
 | 分散状態 | ADR 0005 の `mon` / `ito` / `nuno` | **未実装**（設計のみ。docs/aiueos-dapp.md） |
@@ -102,8 +103,10 @@ npm run mcp:generation # Murakumo 生成 MCP（トークンが必要）
 `bafybeiasmfbfm4633pi72sir7adsrbagnspck5meeoexo2x3afadagec3u`。
 別のローカル Kubo への CAR 取込み・pin でも同じ CID と index SHA-256
 `2361fe743396556fcdee5af84d03d98208a22fdd151a1808e1f8f8afdea63068`
-を確認した。これは公開済みの証拠ではない。own-node への pin と独立した配信
-読み戻しを経て、本番経路の切替は workspace `AGENTS.md` の別承認を受ける。
+を確認した。さらに own-node へ再帰 pin し、別の一時 Kubo が公開 P2P 経由で
+取得した 18 ファイルと元ビルドを全件照合した。これは独自ドメイン公開の証拠ではない。
+IPNS/DNSLink と HTTPS の読み戻しを経て、本番経路の切替は workspace
+`AGENTS.md` の別承認を受ける。
 
 ## ライセンス
 
