@@ -76,10 +76,46 @@ mcp_servers:
 ```
 
 生成側は `dougaka_models`、`dougaka_generate_image/video/voice/music/sfx`、
-`dougaka_job_status`、`dougaka_cancel_job`、`dougaka_save_artifact` を公開する。
+`dougaka_job_status`、`dougaka_cancel_job`、`dougaka_save_artifact`、
+`dougaka_generate_and_publish` を公開する。
 モデル一覧は公開カタログを読み、生成時に再確認する。生成は外部計算を消費する。
 保存は完了ジョブの SHA-256 が一致した場合のみ行い、同名ファイルを上書きしない。
 ブラウザでの同意は agent の tool 実行を許可しない。tool の承認は別途必要。
+
+### MCP/CLI による無人の生成と CID 発行
+
+生成権限を絞った `MURAKUMO_GENERATION_TOKEN` と、既存ディレクトリ
+`DOUGAKA_OUTPUT_DIR`、`DOUGAKA_RUN_DIR` を実行環境に設定する。
+ローカル Kubo に発行する場合は `IPFS_PATH` を設定し、`ipfs id` が通ること。
+`IPFS_BIN` は必要なときだけ指定する。既存の own-node publisher を使う場合は
+`DOUGAKA_IPFS_PUBLISHER` に `publish_app_ipfs.py` のパス、
+`DOUGAKA_IPFS_NODES` にその設定上の node 名（例: `xavier`）を指定する。
+後者は `--document` で own-node へ pin、読み戻し、provider 告知を行う。
+CLI は公開カタログでモデルを再確認し、生成、手動操作なしの状態確認、SHA-256
+検証済み成果物の保存、Kubo への追加・再帰 pin・読み戻し・provider 告知を順に行う。
+
+```json
+{
+  "request_id": "campaign-20261025-001",
+  "mode": "image",
+  "prompt": "A blue lantern on a quiet street",
+  "model": "MODEL_FROM_CATALOG",
+  "aspect": "16:9",
+  "seed": 0
+}
+```
+
+`npm run auto-publish -- /path/to/request.json` は `ipfs://{cid}` と SHA-256 を
+含む receipt を出す。MCP の `dougaka_generate_and_publish` には同じ JSON を
+引数として渡す。MCP はジョブが未完了なら `status: pending` と `retry_after_ms`
+を返すので、agent は同じ `request_id` で呼び直す。host 側の tool 承認規則は
+別途適用される。ブラウザ dapp の外部操作同意は省略しない。
+
+ジャーナルは `request_id` を一度だけ使う。生成送信後の応答が失われた場合、
+重複課金を避けるため自動再送を拒否する。通常経路は無人で進むが、この曖昧な
+失敗は運用者がサービス側の履歴を調べる必要がある。発行先は**不変の IPFS CID**
+のみで、IPNS/DNS と `dougaka.itonami.app` は変更しない。生成用 token がまだ
+用意されていないため、実生成と公開の結合経路は未実測。
 
 入力不正（未知の引数、型、enum、5 MiB 超、空、読めないテキスト）は、JSON-RPC の error ではなく `isError: true` の結果で返す（`{"error": "<名前付きの理由>"}` の形）。
 
@@ -97,6 +133,7 @@ npm run build:guest # amu compile → aiueos/dougaka_core.wasm + sidecar
 npm run build:site  # out/site/ に公開物を組む → 静的サーバで開く
 npm run mcp         # stdio MCP サーバ（stdin に JSON-RPC を流す）
 npm run mcp:generation # Murakumo 生成 MCP（トークンが必要）
+npm run auto-publish -- /path/to/request.json # 生成 → 検証 → IPFS CID 発行
 ```
 
 `out/site/` の 18 ファイルを Kubo 0.41 で UnixFS に追加した候補 CID は

@@ -8,6 +8,7 @@ test('generation MCP exposes five modalities and job lifecycle', async () => {
     'dougaka_models', 'dougaka_generate_image', 'dougaka_generate_video',
     'dougaka_generate_voice', 'dougaka_generate_music', 'dougaka_generate_sfx',
     'dougaka_job_status', 'dougaka_cancel_job', 'dougaka_save_artifact',
+    'dougaka_generate_and_publish',
   ]);
 });
 

@@ -6,13 +6,14 @@
   "license": "AGPL-3.0-or-later",
   "description": "dougaka — Itonami の画像・動画・音声制作 dapp",
   "scripts": {
-    "test": "kbb --backend sci --classpath src:test:../../kotoba-lang/text/src test/run_tests.cljk && node --test test/studio.test.mjs test/generation-mcp.test.mjs",
+    "test": "kbb --backend sci --classpath src:test:../../kotoba-lang/text/src test/run_tests.cljk && node --test test/studio.test.mjs test/generation-mcp.test.mjs test/auto-publish.test.mjs",
     "check:guest": "../../kotoba-lang/amu/bin/amu check aiueos/dougaka_core.cljk",
     "test:guest": "../../kotoba-lang/amu/bin/amu test aiueos/dougaka_core.cljk",
     "build:guest": "../../kotoba-lang/amu/bin/amu compile aiueos/dougaka_core.cljk --target wasm32-browser --output aiueos/dougaka_core.wasm",
     "test:guest-parity": "node test/guest_parity.mjs ../../kotoba-lang/amu/runtime/browser-host.mjs",
     "build:site": "kbb --backend sci --classpath src:site:../../kotoba-lang/text/src:../../kotoba-lang/jp-go-digital-design-system/src:../../kotoba-lang/html/src:../../kotoba-lang/css/src scripts/build-site.cljk",
     "mcp": "kbb bin/dougaka-mcp",
-    "mcp:generation": "node bin/dougaka-generation-mcp.mjs"
+    "mcp:generation": "node bin/dougaka-generation-mcp.mjs",
+    "auto-publish": "node bin/dougaka-auto-publish.mjs"
   }
 }
