@@ -16,7 +16,7 @@ export function modelsFor(catalog, mode) {
   const entries = catalog?.modalities?.[modes[mode]?.catalog] ?? [];
   if (!Array.isArray(entries)) return [];
   return entries.flatMap(entry => Array.isArray(entry?.models) ? entry.models : [])
-    .filter(model => modelId(model))
+    .filter(model => modelId(model) && model?.['hosted?'] !== true)
     .map(model => ({ id: modelId(model), status: modelStatus(model) || 'unverified' }));
 }
 

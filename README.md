@@ -5,8 +5,9 @@
 `kotoba-client-runtime.js` の broker が操作ごとに Murakumo の接続先と送信内容を示し、
 承認後にブラウザから `generation.murakumo.cloud` へ直接接続する。
 
-公開先は app.itonami.cloud（`network-awai/cloud-itonami` の `sites.edn`、`app` org）。
-公開の配線はそちらの repo の作業で、この repo が持つのは中身と公開物の宣言（`site/site.edn`）。
+公開先は `dougaka.itonami.app` を予定し、現時点では配信側の
+`network-awai/cloud-itonami` で provisioning 中。この repo は中身と公開物の宣言
+（`site/site.edn`）を持つ。旧 `itonami.cloud/sites/app/dougaka/` は別の配信面。
 
 従来の timeline JSON → ffmpeg 組み立て計画も画面下部に残す。その計画機能は
 完全にブラウザ内で動き、外部サービスへ送信しない。
@@ -28,7 +29,7 @@
 | timeline MCP | `bin/dougaka-mcp`（stdio）+ `src/dougaka/mcp.cljk` | **実装済み・実測**：validate / plan |
 | 生成 MCP | `bin/dougaka-generation-mcp.mjs` | **実装済み・ローカル検査**：モデル、五つの生成、状態・中止・保存。トークンを使う実生成は未検証 |
 | 分散状態 | ADR 0005 の `mon` / `ito` / `nuno` | **未実装**（設計のみ。docs/aiueos-dapp.md） |
-| Murakumo 生成 | ブラウザから直接接続。トークンはタブのメモリのみ | `configured=false` の明示時は停止。フィールドが無い live catalog では実行可否を未確認と表示。動画は 1 ジョブ約 5 秒まで |
+| Murakumo 生成 | ブラウザから直接接続。トークンはタブのメモリのみ | カタログで self-hosted かつ production/verified のモデルだけを選ぶ。現在の voice は unverified で選択不可。`configured=false` の明示時は停止。動画は 1 ジョブ約 5 秒まで |
 
 詳細な実測と「動かない」ものは [`docs/aiueos-dapp.md`](docs/aiueos-dapp.md)。
 

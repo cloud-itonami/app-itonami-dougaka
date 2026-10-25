@@ -14,6 +14,11 @@ test('Murakumo catalog determines selectable modes without a bundled model guess
   assert.deepEqual(modelsFor({ ...catalog, configured: false }, 'video'), []);
   const { configured: _ignored, ...oldCatalog } = catalog;
   assert.equal(modelsFor(oldCatalog, 'video').length, 2);
+  const withHosted = { ...catalog, modalities: { video: [{ models: [
+    { id: 'local', status: 'verified', 'hosted?': false },
+    { id: 'hosted-provider', status: 'production', 'hosted?': true },
+  ] }] } };
+  assert.deepEqual(modelsFor(withHosted, 'video'), [{ id: 'local', status: 'verified' }]);
 });
 
 test('generation requests have Murakumo modality shapes', () => {

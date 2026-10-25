@@ -8,7 +8,6 @@ import { createInterface } from 'node:readline';
 import { buildGenerationRequest, jobIdFrom, modelsFor, modes, artifactDigest } from '../site/studio-core.js';
 
 const origin = 'https://generation.murakumo.cloud';
-const base = `${origin}/api/v1/generation`;
 const token = process.env.MURAKUMO_GENERATION_TOKEN?.trim() ?? '';
 const outputDir = process.env.DOUGAKA_OUTPUT_DIR?.trim() ?? '';
 const text = value => ({ type: 'text', text: JSON.stringify(value) });
@@ -22,7 +21,7 @@ const tools = [
     inputSchema: { type: 'object', properties: {}, additionalProperties: false } },
   ...Object.entries(modes).map(([mode, info]) => ({
     name: `dougaka_generate_${mode}`,
-    description: `Submit one ${info.label} generation job to Murakumo. Requires MURAKUMO_GENERATION_TOKEN and a currently configured, verified model. This consumes remote compute.`,
+    description: `Submit one ${info.label} generation job to Murakumo. Requires MURAKUMO_GENERATION_TOKEN and a self-hosted production or verified model. This consumes remote compute.`,
     inputSchema: { type: 'object', properties: {
       prompt: string(mode === 'voice' ? 'Text to speak.' : 'Generation prompt.', { maxLength: 12000 }),
       model: string('Model id listed by dougaka_models.'),
