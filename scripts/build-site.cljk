@@ -10,11 +10,15 @@
 (ns build-site
   (:require ["fs" :as fs]
             ["path" :as path]
+            ["child_process" :as cp]
+            ["crypto" :as crypto]
             [clojure.edn :as edn]
             [kotoba.lang.text :as text]
             [dougaka.page]))
 
 (def kotoba-lang (or (aget js/process.env "KOTOBA_LANG") "../../kotoba-lang"))
+(def wasm-webcomponent (or (aget js/process.env "KOTOBA_WASM_WEBCOMPONENT")
+                           "../../kotoba-lang/wasm-webcomponent"))
 
 (def out-dir (or (first *command-line-args*) "out/site"))
 
@@ -30,11 +34,34 @@
 
 (doseq [f (:vendor site)]
   (copy! (str "site/vendor/" f) (str out-dir "/vendor/" f)))
-(doseq [{:keys [repo from to]} (:external site)]
-  (let [lib (last (text/split repo #"/" ))]
-    (copy! (str kotoba-lang "/" lib "/" from) (str out-dir "/" to))))
+(doseq [{:keys [repo sha from to]} (:external site)]
+  (when-not (and sha (re-matches #"[0-9a-f]{40}" sha))
+    (throw (js/Error. (str "missing pinned external revision: " repo))))
+  (let [lib (last (text/split repo #"/"))
+        target (str out-dir "/" to)
+        r (cp/spawnSync "git" #js ["-C" (str kotoba-lang "/" lib) "show" (str sha ":" from)]
+                        #js {:maxBuffer (* 8 1024 1024)})]
+    (when-not (zero? (.-status r))
+      (throw (js/Error. (str "missing pinned external source: " repo " " sha ":" from))))
+    (fs/mkdirSync (path/dirname target) #js {:recursive true})
+    (fs/writeFileSync target (.-stdout r))))
 (doseq [{:keys [from to]} (:sources site)]
   (copy! from (str out-dir "/" to)))
+(doseq [{:keys [from to]} (:modules site)]
+  (copy! from (str out-dir "/" to)))
+
+(doseq [{:keys [from to sha256]} (get-in site [:client-runtime :files])]
+  (let [sha (get-in site [:client-runtime :sha])
+        r (cp/spawnSync "git" #js ["-C" wasm-webcomponent "show" (str sha ":" from)]
+                        #js {:maxBuffer (* 8 1024 1024)})]
+    (when-not (zero? (.-status r))
+      (throw (js/Error. (str "missing pinned client runtime source: " sha ":" from))))
+    (let [body (.-stdout r)
+          got (.digest (.update (crypto/createHash "sha256") body) "hex")]
+      (when-not (= got sha256)
+        (throw (js/Error. (str "client runtime digest mismatch: " from))))
+      (fs/mkdirSync (path/dirname (str out-dir "/" to)) #js {:recursive true})
+      (fs/writeFileSync (str out-dir "/" to) body))))
 
 (def dds-css
   (fs/readFileSync (or (aget js/process.env "DDS_CSS")

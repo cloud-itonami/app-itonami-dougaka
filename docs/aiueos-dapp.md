@@ -1,7 +1,6 @@
 # app-itonami-dougaka — aiueos dapp 設計と実測
 
-設計の正本。README は「今この repo に何が在って、何が動くか」だけを書く。
-判断の理由と未実装の境界はここに書く。
+設計と検証境界。現在の機能一覧は README を参照する。
 
 ## 設計
 
@@ -17,24 +16,30 @@
   SSR とブラウザが同じ関数を描く（ADR-0052）。
 - `site/site.edn` + `site/dougaka/page.cljk` — 公開物の宣言と殻。
   生成器（network-awai/cloud-itonami）が読む。
-- `bin/dougaka-mcp` + `src/dougaka/mcp.cljk` — stdio MCP（pure tools）。
+- `bin/dougaka-mcp` + `src/dougaka/mcp.cljk` — timeline 用の純粋な stdio MCP。
+- `site/studio-*.js` — ブラウザの制作 UI。canonical broker の固定 commit を
+  `site/site.edn` で pin し、生成サービスへの操作を一件ずつ承認する。
+- `bin/dougaka-generation-mcp.mjs` — 別の、効果を持つ生成 MCP。tool 承認と
+  ブラウザ同意は互いに流用しない。
 
-## 本家との境界
+## timeline 計画と制作の境界
 
-本家 `cloud-itonami/dougaka` は HTTP グラフサーバ + オフライン ffmpeg 実行で、
-murakumo fleet・ComfyUI・VOICEVOX・B2・Kotobase に触る。この dapp はそのうち
-**計画部（timeline → render plan）の純関数のみ** をブラウザに載せる。
+本家 `cloud-itonami/dougaka` は HTTP グラフサーバ + オフライン ffmpeg 実行を持つ。
+この dapp はその計画部をブラウザに残し、画像・動画・声・音については
+Murakumo の公開 generation API に直接接続する。dapp origin は静的資産のみを配る。
 
 | 本家にある | dapp にある | dapp に無い |
 |---|---|---|
 | render plan の形 | 同形の plan（segments/width/height/fps） | — |
 | ffmpeg 実行 | argv の表示・台本の保存 | 実行 |
-| murakumo / ComfyUI / VOICEVOX | 無し | 無し（対象外） |
+| Murakumo generation | 操作ごとに同意する直接接続 | origin 上の API / proxy |
 | B2 / Kotobase への接続 | 無し | 無し（対象外） |
 | `/xrpc` の auth 境界 | 無し（ローカルに鍵を持たない） | — |
 
-本家の既知の gap（`/xrpc` が `LG_API_KEY` の裏に無い）は、この dapp には無い。
-鍵を持たず、送信もしないからである。
+Murakumo の access token はブラウザのタブ内メモリにのみ保持する。入力した token を
+アプリ origin に送らない。生成サービスが `configured=false` を明示した場合は
+モデルを選択可能にしない。2026-10-25 の live catalog は `configured` を返さないため、
+その場合は実行可否を未確認と表示し、ジョブ応答で判断する。
 
 ## 未実装
 
@@ -42,9 +47,11 @@ murakumo fleet・ComfyUI・VOICEVOX・B2・Kotobase に触る。この dapp は�
   adapter で、guest との一致は parity fixture で担保する。
 - **分散状態**（ADR 0005 の mon／ito／nuno）— 設計のみ。今は 1 ブラウザの
   localStorage に閉じる。
-- **生成 AI・mp4 エンコード・本家 API への直接接続** — 対象外。この dapp は
-  計画だけ作る道具で、共通ブローカー（`kotoba-client-runtime.js`）の有無に
-  かかわらず接続しない。
+- **Higgsfield 固有の管理機能の完全互換** — project/brand/canvas/marketing
+  等は現時点で未実装。Itonami の production/verified モデルに限って制作する。
+- **ライブ生成と独自ドメイン公開** — トークン付き生成・実成果物は未検証。
+  `dougaka.itonami.app` は配信側で provisioning と宣言されており、DNSLink と
+  静的公開物の実配信・ブラウザ上の readback を通るまで公開済みと扱わない。
 
 ## 実測
 
@@ -56,8 +63,8 @@ murakumo fleet・ComfyUI・VOICEVOX・B2・Kotobase に触る。この dapp は�
   `amu check` は `:effects #{}` で green。
 - wasm parity: `node test/guest_parity.mjs` — **21/21 rows match**
   （`dougaka_core.wasm` 1,567 bytes + provenance/publication sidecar）。
-- site: `npm run build:site` — `out/site/index.html` 78,218 chars +
-  5 vendor + 6 scittle。`src`/`href` はすべて相対（外部リクエストゼロの検査 green）。
-  本文中の `http` は 1 件だけ inline CSS 内の DADS コメント URL（取得されない）。
+- site: 今回の Studio 候補は app 側 build と配信側 generator の両方で生成。
+  `src`/`href` は相対、canonical broker と consent CSS は pinned commit と digest で照合。
+  CSP は `connect-src https://generation.murakumo.cloud` のみを許可。
 - MCP: stdio 3 行（initialize → initialized → tools/call）で `dougaka_validate` が
   `{"ok":false,"errors":["missing-scene-frames: 0"]}` を返し、exit 0（実測）。
