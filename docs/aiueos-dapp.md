@@ -52,7 +52,8 @@ Murakumo の access token はブラウザのタブ内メモリにのみ保持す
 - **Higgsfield 固有の管理機能の完全互換** — project/brand/canvas/marketing
   等は現時点で未実装。Itonami の production/verified モデルに限って制作する。
 - **ライブ生成と独自ドメイン公開** — トークン付き生成・実成果物は未検証。
-  own-node IPFS/Kubo 向け静的候補の CID は pin と P2P 読戻しまで確認した。
+  own-node IPFS/Kubo 向け現行静的候補の CID は pin、CAR 経由の全件照合、
+  P2P での index 読戻しまで確認した。
   IPNS、DNSLink と HTTPS のブラウザ readback を通るまで独自ドメイン公開済みと扱わない。
 - **MCP/CLI の結合経路** — ローカルの状態遷移と再送防止はテスト済み。
   generation-scope token が無いため、実ジョブから CID 発行までの実測は未完。
@@ -70,7 +71,7 @@ Murakumo の access token はブラウザのタブ内メモリにのみ保持す
 - site: 今回の Studio 候補は app 側 build と配信側 generator の両方で生成。
   `src`/`href` は相対、canonical broker と consent CSS は pinned commit と digest で照合。
   CSP は `connect-src https://generation.murakumo.cloud` のみを許可。
-- 静的配布: 18 ファイルの CID `bafybeiasmfbfm4633pi72sir7adsrbagnspck5meeoexo2x3afadagec3u`
+- 静的配布: 現行 18 ファイルの候補 CID `bafybeia5mo45s6bq7i5v6l4qoa7dh55vv3djwhyn6a4fjveh3p2wlstsxi`（Xavier pin、CAR 経由で全件照合、P2P は index 読戻しまで）
   を own-node に再帰 pin。別の一時 Kubo から P2P で取得し、元の `out/site/` と
   18/18 ファイルがバイト一致。`index.html` SHA-256 は
   `2361fe743396556fcdee5af84d03d98208a22fdd151a1808e1f8f8afdea63068`。

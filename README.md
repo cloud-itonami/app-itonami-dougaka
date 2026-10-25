@@ -7,8 +7,8 @@
 
 公開先は `dougaka.itonami.app` を予定し、既存 own-node IPFS/Kubo から
 `out/site/` の静的バンドルを配る方針。この repo が中身と公開物の宣言
-（`site/site.edn`）を持つ。候補 CID は own-node に pin し、別の Kubo から
-P2P で 18 ファイルを読み戻して照合済み。IPNS/DNSLink と独自ドメインの
+（`site/site.edn`）を持つ。現行候補 CID は own-node に pin し、そこから
+書き出した CAR を別の Kubo に取り込んで 18 ファイルを照合済み。IPNS/DNSLink と独自ドメインの
 HTTPS 読み戻しは未完了。旧 `itonami.cloud/sites/app/dougaka/`
 は別の配信面で、公開判定には使わない。
 
@@ -136,14 +136,38 @@ npm run mcp:generation # Murakumo 生成 MCP（トークンが必要）
 npm run auto-publish -- /path/to/request.json # 生成 → 検証 → IPFS CID 発行
 ```
 
-`out/site/` の 18 ファイルを Kubo 0.41 で UnixFS に追加した候補 CID は
-`bafybeiasmfbfm4633pi72sir7adsrbagnspck5meeoexo2x3afadagec3u`。
-別のローカル Kubo への CAR 取込み・pin でも同じ CID と index SHA-256
+`out/site/` の現行 18 ファイルを Kubo 0.41 で UnixFS に追加した候補 CID は
+`bafybeia5mo45s6bq7i5v6l4qoa7dh55vv3djwhyn6a4fjveh3p2wlstsxi`。
+旧候補 `bafybeiasmfbfm4633pi72sir7adsrbagnspck5meeoexo2x3afadagec3u` は
+現行 main の `studio-core.js` より古く、hosted モデルの除外を含まないため、
+公開候補から外した。
+現行 CID は Xavier に再帰 pin し、Xavier から書き出した CAR の SHA-256
+`88cf539dee08dd2379ec558088fac2fcc8e893ad6ddff493b3b356092b62e555`
+を発行時の記録と照合した。別 Kubo に CAR を取り込み、現行ビルドと 18 ファイルを
+全件照合した。P2P では `index.html` を取得したが、全件の P2P 取得は未完了。
+index SHA-256
 `2361fe743396556fcdee5af84d03d98208a22fdd151a1808e1f8f8afdea63068`
-を確認した。さらに own-node へ再帰 pin し、別の一時 Kubo が公開 P2P 経由で
-取得した 18 ファイルと元ビルドを全件照合した。これは独自ドメイン公開の証拠ではない。
+を確認した。これは独自ドメイン公開の証拠ではない。
 IPNS/DNSLink と HTTPS の読み戻しを経て、本番経路の切替は workspace
 `AGENTS.md` の別承認を受ける。
+
+### dapp の配布経路
+
+hApp の[配布手順](https://developer.holochain.org/get-started/3-packaging-and-distribution/)の
+「不変のパッケージを発行し、公開カタログで発見し、更新可能な名前から
+現在版を指す」構造を配布の参考にする。Dougaka は Holochain の hApp ではなく、
+ブラウザが実行する静的 dapp である。
+
+1. リポジトリの commit と `site/site.edn` から `out/site/` を組み、CID と
+   ファイル digest を記録する。
+2. own-node Kubo に CID を pin し、独立した読戻しで配布物を照合する。
+3. Itonami の配布記録に commit、CID、検証範囲、pin 先を載せる。
+4. リリース条件を満たした版だけを IPNS/DNSLink の安定名へ昇格し、
+   `dougaka.itonami.app` で HTTPS 読戻しする。更新や復旧は安定名の参照先を
+   検証済み CID に替える。
+
+生成 MCP/CLI が発行するメディアの CID はアプリ本体の CID と別である。
+ブラウザ内の外部操作は共有 broker の都度同意を通す。
 
 ## ライセンス
 
