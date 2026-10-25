@@ -1,16 +1,15 @@
 # app-itonami-dougaka
 
-**dougaka（動画家）は、timeline から ffmpeg の組み立て計画を作る dapp。**
-timeline の JSON（scenes / assets / lines）を取り込み、順序付き segments
-（frame / voice / text）と解像度・fps・bgm の計画を作り、ffmpeg の台本として
-書き出す。すべて利用者のブラウザの中で動き、入力は送信されない（外部リクエストはゼロ）。
+**dougaka Studio は、Itonami のモデル基盤で画像・動画・声・音を制作する静的 dapp。**
+画面・制作状態・timeline 計画は利用者のブラウザで動く。生成を選ぶと、canonical
+`kotoba-client-runtime.js` の broker が操作ごとに Murakumo の接続先と送信内容を示し、
+承認後にブラウザから `generation.murakumo.cloud` へ直接接続する。
 
 公開先は app.itonami.cloud（`network-awai/cloud-itonami` の `sites.edn`、`app` org）。
 公開の配線はそちらの repo の作業で、この repo が持つのは中身と公開物の宣言（`site/site.edn`）。
 
-本家 `cloud-itonami/dougaka`（動画生成サービス）の render 計画部と同形の
-計画を作る。違うのは実行しないこと：mp4 エンコード・生成 AI・B2/Kotobase への
-接続は持たない。計画だけ作って、手元の ffmpeg で焼くための台本を渡す。
+従来の timeline JSON → ffmpeg 組み立て計画も画面下部に残す。その計画機能は
+完全にブラウザ内で動き、外部サービスへ送信しない。
 
 > dougaka は名称の比喩で、提携や同一性を主張しない。
 
@@ -23,11 +22,13 @@ timeline の JSON（scenes / assets / lines）を取り込み、順序付き seg
 | adapter | `src/dougaka/core.cljk` — 検証 + `build-plan` + ffmpeg argv | **実装済み・実測**（kbb） |
 | 取り込み | `src/dougaka/ingest.cljk` — timeline JSON | **実装済み・実測**（kbb） |
 | 書き出し | `src/dougaka/export.cljk` — 計画 JSON + ffmpeg 台本 + 要約 | **実装済み・実測**（kbb） |
-| 画面 | `src/dougaka/view.cljk`（純 hiccup）+ `site/app.cljk`（Re-frame/Reagent、scittle） | **実装済み**：ローカル配信で確認 |
+| 制作画面 | `site/studio-host.js` + `studio-core.js` + `studio-contract.js` | **実装済み**：ローカル配信で五つのタブと同意・拒否を確認。実生成は未検証 |
+| timeline 画面 | `src/dougaka/view.cljk` + `site/app.cljk` | **実装済み**：従来の計画機能を折りたたみ内に維持 |
 | 公開物の宣言 | `site/site.edn`、`site/dougaka/page.cljk`、`site/vendor/`（+ `PROVENANCE.edn`） | 宣言済み。app.itonami.cloud への公開は cloud-itonami 側の作業 |
-| agent 統合（MCP） | `bin/dougaka-mcp`（stdio）+ `src/dougaka/mcp.cljk` — tool `dougaka_validate` / `dougaka_plan` | **実装済み・実測**：stdio テスト、itonami-agent の MCP クライアントで discover / call |
+| timeline MCP | `bin/dougaka-mcp`（stdio）+ `src/dougaka/mcp.cljk` | **実装済み・実測**：validate / plan |
+| 生成 MCP | `bin/dougaka-generation-mcp.mjs` | **実装済み・ローカル検査**：モデル、五つの生成、状態・中止・保存。トークンを使う実生成は未検証 |
 | 分散状態 | ADR 0005 の `mon` / `ito` / `nuno` | **未実装**（設計のみ。docs/aiueos-dapp.md） |
-| 生成 AI・mp4 エンコード・本家 API 直結 | — | **未実装・対象外**（この dapp は計画だけ作る。`kotoba-client-runtime.js` が無いこともあるが、そもそも接続しない設計） |
+| Murakumo 生成 | ブラウザから直接接続。トークンはタブのメモリのみ | 公開カタログが `configured` を返さなければ生成を止める。動画は 1 ジョブ約 5 秒まで |
 
 詳細な実測と「動かない」ものは [`docs/aiueos-dapp.md`](docs/aiueos-dapp.md)。
 
@@ -59,9 +60,22 @@ mcp_servers:
 | `dougaka_validate` | `text`（timeline JSON、5 MiB まで） | `ok`、`errors`（名前付きの理由） |
 | `dougaka_plan` | `text`、`aspect?`（`portrait`／`landscape`） | `ok`、`errors`、`plan`、`summary`、`ffmpeg`（台本） |
 
-しないこと:
-- エンコード・送信・保存はしない。tool は渡されたテキストだけから結果を作り、呼び出しをまたいで何も覚えない。
-- 生成 AI・本家 dougaka API には接続しない。
+この二つの tool は純粋で、送信・保存をしない。生成には別 MCP サーバを使う。
+
+```yaml
+mcp_servers:
+  dougaka-generation:
+    command: node
+    args: ["/abs/path/to/cloud-itonami/app-itonami-dougaka/bin/dougaka-generation-mcp.mjs"]
+    # 起動環境に MURAKUMO_GENERATION_TOKEN を generation scope で設定する。
+    # 成果物のローカル保存には DOUGAKA_OUTPUT_DIR も設定する。
+```
+
+生成側は `dougaka_models`、`dougaka_generate_image/video/voice/music/sfx`、
+`dougaka_job_status`、`dougaka_cancel_job`、`dougaka_save_artifact` を公開する。
+モデル一覧は公開カタログを読み、生成時に再確認する。生成は外部計算を消費する。
+保存は完了ジョブの SHA-256 が一致した場合のみ行い、同名ファイルを上書きしない。
+ブラウザでの同意は agent の tool 実行を許可しない。tool の承認は別途必要。
 
 入力不正（未知の引数、型、enum、5 MiB 超、空、読めないテキスト）は、JSON-RPC の error ではなく `isError: true` の結果で返す（`{"error": "<名前付きの理由>"}` の形）。
 
@@ -78,6 +92,7 @@ npm run test:guest  # amu test: guest の test-*（jvm-kir / js / wasm）
 npm run build:guest # amu compile → aiueos/dougaka_core.wasm + sidecar
 npm run build:site  # out/site/ に公開物を組む → 静的サーバで開く
 npm run mcp         # stdio MCP サーバ（stdin に JSON-RPC を流す）
+npm run mcp:generation # Murakumo 生成 MCP（トークンが必要）
 ```
 
 ## ライセンス

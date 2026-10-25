@@ -1,16 +1,13 @@
 (ns dougaka.page
-  "app.itonami.cloud/dougaka/ のページの殻（SSR）。
+  "dougaka の静的ページの殻（SSR）。
 
   UI は DADS（デジタル庁デザインシステム、`kotoba-lang/jp-go-digital-design-system`）
   の class と、下の app-css だけで作る —— app.itonami.cloud の他の道具（mihari・
   dandori・inkan）と同じ design system に載せる。
 
-  ## このページは何も送信しない
-
-  timeline には企画の内容が入る。**入力は 1 バイトもネットワークに出ない** ——
-  サーバも fetch も無く、保存はこの端末の localStorage だけ。外部リクエストも
-  ゼロにしてある: DADS の CSS は inline、React / scittle は同一オリジンに
-  vendor（site/vendor/PROVENANCE.edn）。
+  timeline 計画はブラウザ内だけで動く。Studio の生成操作は独立した
+  Murakumo service origin に共有 broker の各操作同意を経て直接送る。
+  画面の JS / CSS は同一オリジンの静的ファイルから読む。
 
   ## 本文は view と同じ関数
 
@@ -20,10 +17,10 @@
   (:require [jp-go-dds.page :as dds-page]
             [dougaka.view :as view]))
 
-(def ^:private site-title "dougaka — 動画組み立てプラン")
+(def ^:private site-title "dougaka Studio — Itonami メディア制作")
 
 (def ^:private site-description
-  "timeline の JSON から ffmpeg の組み立て計画をブラウザの中だけで作ります。データは送信されません。mp4 のエンコードはしません。")
+  "画像・動画・音声を Itonami のモデル基盤で制作します。Murakumo への操作は毎回確認します。timeline の ffmpeg 計画はブラウザ内で作ります。")
 
 (def app-css
   "DADS の上に載せる配置だけ。色は DADS の custom property から引く。"
@@ -64,7 +61,20 @@
     :css css
     :app-css app-css
     :head (vec (concat
+                [[:meta {:http-equiv "Content-Security-Policy"
+                         :content (str "default-src 'none'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; "
+                                       "style-src 'self' 'unsafe-inline'; img-src 'self' blob: data:; "
+                                       "media-src blob:; connect-src https://generation.murakumo.cloud; "
+                                       "base-uri 'none'; form-action 'none'")}]
+                 [:link {:rel "stylesheet" :href "./studio.css"}]
+                 [:link {:rel "stylesheet" :href "./kotoba-client-consent.css"}]
+                 [:script {:type "module" :src "./studio-host.js"}]]
                 (map (fn [src] [:script {:src (str "./" src)}]) vendor-scripts)
                 (map (fn [src] [:script {:type "application/x-scittle" :src (str "./" src)}])
                      scittle-scripts)))}
-   [:div {:id "app"} (strip-client-only (view/main view/initial-model))]))
+   [:main
+    [:div {:id "dougaka-studio"}
+     [:p "Dougaka Studio を読み込んでいます。JavaScript が使えない場合は、下の動画組み立てプランを利用できます。"]]
+    [:details {:class "dougaka-plan-details"}
+     [:summary "timeline から ffmpeg 組み立て計画を作る"]
+     [:div {:id "app"} (strip-client-only (view/main view/initial-model))]]]))

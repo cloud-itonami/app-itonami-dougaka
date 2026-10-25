@@ -9,11 +9,21 @@
 ;;   <script type="application/x-scittle"> に並ぶ。scittle は同じ SCI 文脈で
 ;;   順に評価するので、require される側を先に置く。
 ;; - (dougaka.page/document opts) が完全な HTML を返す。
-{:title "dougaka — 動画組み立てプラン"
- :description "timeline の JSON から ffmpeg の組み立て計画（segments・解像度・台本）をブラウザの中だけで作る。データは送信されず、この端末の localStorage にだけ残る。mp4 のエンコードはしない。"
+{:title "dougaka Studio — Itonami メディア制作"
+ :description "Itonami のモデル基盤で画像・動画・音声を制作。ブラウザから Murakumo に直接接続し、各操作前に同意を確認する。timeline の ffmpeg 計画もブラウザ内で作れる。"
  :page {:ns dougaka.page :fn document}
  :vendor ["react.production.min.js" "react-dom.production.min.js"
           "scittle.js" "scittle.reagent.js" "scittle.re-frame.js"]
+ :client-runtime {:repo "kotoba-lang/wasm-webcomponent"
+                  :sha "e00ae75e1c589f76b4f53a88a5e3256c98c9e162"
+                  :files [{:from "src/kotoba-client-runtime.js" :to "kotoba-client-runtime.js"
+                           :sha256 "7f760128c3a58098123c31ec3dd34b9c871932e3933f2c952facc4ab0e647212"}
+                          {:from "src/kotoba-client-consent.css" :to "kotoba-client-consent.css"
+                           :sha256 "eb1caab0619c5ca4428df637ae140bc3774582fa3f0b95a44bbd39b27b6b9086"}]}
+ :modules [{:from "site/studio-contract.js" :to "studio-contract.js"}
+           {:from "site/studio-core.js" :to "studio-core.js"}
+           {:from "site/studio-host.js" :to "studio-host.js"}
+           {:from "site/studio.css" :to "studio.css"}]
  :external [{:repo "kotoba-lang/text" :sha "bc551a3ecc68e551ba1dd2fcb22d5f1b8dd7805d"
              :from "src/kotoba/lang/text.cljk" :to "kotoba/lang/text.cljs"}]
  :sources [{:from "src/dougaka/core.cljk" :to "dougaka/core.cljs"}
