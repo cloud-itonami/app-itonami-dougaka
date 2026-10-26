@@ -1,4 +1,6 @@
 ;; nbb.edn -- the kbb engine reads :deps HERE, not from deps.edn.
 {:paths ["src"]
- :deps {io.github.kotoba-lang/text {:git/url "https://github.com/kotoba-lang/text.git"
-                                    :git/sha "bc551a3ecc68e551ba1dd2fcb22d5f1b8dd7805d"}}}
+ :deps {io.github.kotoba-lang/text
+        {:git/url "https://github.com/kotoba-lang/kotoba.git"
+         :git/sha "38654600c00caea2caec9ec0650625f2f6a69378"
+         :deps/root "lib/kotoba.text"}}}
