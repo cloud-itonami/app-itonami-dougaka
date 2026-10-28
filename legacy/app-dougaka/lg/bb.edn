@@ -1,0 +1,14 @@
+{;; lg-dougaka — babashka project (scoped to this app only; does NOT touch the
+ ;; repo-root bb.edn). The clj twin of the Python LangGraph server, ported per
+ ;; ADR-2606280030 (langgraph-python → langgraph-clj). Coexists with the still-live
+ ;; Python `lg_dougaka/` package until the deployment is repointed.
+ ;;
+ ;;   src   — lg-dougaka.* namespaces (graphs / server / audit)
+ ;;   tests — clojure.test smoke suite
+ ;;
+ ;; cheshire (JSON) + babashka.http-client are built into bb; only langgraph-clj
+ ;; is an external dep (pinned identically to the repo-root bb.edn).
+ :paths ["src" "tests"]
+ :deps {com-junkawasaki/langgraph-clj
+        {:git/url "https://github.com/com-junkawasaki/langgraph-clj"
+         :git/sha "c7daa07d4e50f55d7e2a02e4b89dbeb2b200961d"}}}

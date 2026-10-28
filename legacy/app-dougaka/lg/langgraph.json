@@ -1,0 +1,9 @@
+{
+  "dependencies": ["."],
+  "graphs": {
+    "health": "lg_dougaka/graphs/health.py:GRAPH",
+    "render": "lg_dougaka/graphs/render.py:GRAPH"
+  },
+  "env": ".env",
+  "python_version": "3.11"
+}
