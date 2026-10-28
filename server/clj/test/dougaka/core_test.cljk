@@ -1,0 +1,97 @@
+(ns dougaka.core-test
+  (:require [kotoba.lang.edn :as edn]
+            [kotoba.test :refer [deftest is testing]]
+            [douga.ffmpeg :as plan]
+            [dougaka.graphs.registry :as reg]))
+
+;; langgraph.edn is now Datomic/Datascript tx-data (a single-entity vector
+;; with :clj.langgraph/* namespaced attrs, ADR-driven Phase 3 EDN-datomize
+;; fanout) rather than a bare map. Reconstitute the original un-namespaced
+;; map shape here so the test below keeps reading `(:graphs manifest)`
+;; unchanged; blob-valued attrs (non-scalar original values) are pr-str'd
+;; strings and need one more edn/read-string to get back the nested map.
+(defn- unblob [v]
+  (if (string? v)
+    (try (let [parsed (edn/read-string v)] (if (coll? parsed) parsed v))
+         (catch Exception _ v))
+    v))
+(defn- reconstitute-entity [tx-data]
+  (into {} (map (fn [[k v]] [(keyword (name k)) (unblob v)]))
+        (dissoc (first tx-data) :db/id)))
+
+(def sample-timeline
+  {:videoId "video-abc"
+   :scenes [{:index 0 :location "教室" :action "導入"}
+            {:index 1 :location "屋上" :action "解説"}]
+   :lines [{:sceneIndex 0 :lineIndex 1 :speaker "right" :voiceBlobKey "v01"}
+           {:sceneIndex 0 :lineIndex 0 :speaker "left" :voiceBlobKey "v00"}
+           {:sceneIndex 1 :lineIndex 0 :speaker "left" :voiceBlobKey "v10"}]
+   :assets [{:kind "scene" :blobKey "frame0" :meta {:sceneIndex 0}}
+            {:kind "scene" :blobKey "frame1" :meta {:sceneIndex 1}}
+            {:kind "bgm" :blobKey "bgmkey" :meta {}}
+            {:kind "background" :blobKey "bgX" :meta {:sceneIndex 0}}]
+   :resolution "1280x720"
+   :fps 30})
+
+(deftest registry-surface
+  (let [r (reg/build)]
+    (is (= #{"cloud.itonami.apps.dougaka.health" "cloud.itonami.apps.dougaka.render"} (set (keys r))))
+    (is (reg/resolve-entry r "render"))
+    (is (reg/resolve-entry r "cloud.itonami.apps.dougaka.render"))
+    (is (= ["health" "render"]
+           (:graphs ((:handler (reg/resolve-entry r "health")) {} nil))))))
+
+(deftest manifest-matches-registry
+  (let [manifest (reconstitute-entity (edn/read-string (slurp "langgraph.edn")))
+        declared (set (keys (:graphs manifest)))
+        actual (set (keys (reg/build)))]
+    (is (= actual declared))))
+
+(deftest build-render-plan-orders-scenes-and-voices
+  (let [p (plan/build-render-plan sample-timeline)]
+    (is (= [0 1] (mapv :scene-index (:segments p))))
+    (is (= "frame0" (-> p :segments first :frame-blob-key)))
+    (is (= ["v00" "v01"] (-> p :segments first :voice-blob-keys)))
+    (is (= ["v10"] (-> p :segments second :voice-blob-keys)))
+    (is (= "bgmkey" (:bgm-blob-key p)))
+    (is (= [1280 720 30] [(:width p) (:height p) (:fps p)]))))
+
+(deftest build-render-plan-skips-scenes-without-frame
+  (let [p (plan/build-render-plan
+           {:scenes [{:index 0} {:index 1}]
+            :lines []
+            :assets [{:kind "scene" :blobKey "f1" :meta {:sceneIndex 1}}]})]
+    (is (= [1] (mapv :scene-index (:segments p))))))
+
+(deftest parse-resolution-forms
+  (is (= [1920 1080] (plan/parse-resolution "1920x1080")))
+  (is (= [1280 720] (plan/parse-resolution "720p")))
+  (is (= [1280 720] (plan/parse-resolution "garbage"))))
+
+(deftest ffmpeg-argv-builders-shape
+  (let [a (plan/concat-audio-cmd ["a.wav" "b.wav"] "out.wav")
+        seg (plan/scene-segment-cmd "f.png" "a.wav" "s.mp4" {:width 1280 :height 720 :fps 30})
+        cc (plan/concat-segments-cmd "list.txt" "v.mp4")
+        mix (plan/bgm-mix-cmd "v.mp4" "bgm.bin" "o.mp4")
+        sil (plan/silent-audio-cmd "s.wav" {:seconds 2.0})]
+    (is (= "ffmpeg" (first a)))
+    (is (= "out.wav" (last a)))
+    (is (some #{"[0:a][1:a]concat=n=2:v=0:a=1[a]"} a))
+    (is (some #{"-loop"} seg))
+    (is (some #{"libx264"} seg))
+    (is (= "s.mp4" (last seg)))
+    (is (some #{"concat"} cc))
+    (is (= "v.mp4" (last cc)))
+    (is (some #{"[0:a][1:a]amix=inputs=2:duration=first:dropout_transition=0[a]"} mix))
+    (is (some #{"anullsrc=r=24000:cl=mono"} sil))
+    (is (= "file '/tmp/a'\\''s.mp4'\nfile '/tmp/b.mp4'\n"
+           (plan/concat-list-text ["/tmp/a's.mp4" "/tmp/b.mp4"])))))
+
+(deftest render-handler-returns-plan
+  (let [r (reg/build)
+        h (:handler (reg/resolve-entry r "render"))
+        out (h {:timeline sample-timeline} nil)]
+    (is (= "planned" (:status out)))
+    (is (= "video-abc" (:videoId out)))
+    (is (= 2 (:segmentCount out)))
+    (is (= "frame0" (-> out :renderPlan :segments first :frame-blob-key)))))

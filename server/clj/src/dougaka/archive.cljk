@@ -1,0 +1,84 @@
+(ns dougaka.archive
+  "JVM I/O for kotobase.net's content-addressed archive — the storage plane of
+  a dougaka production. Pure CID math lives in dougaka.kotobase.
+
+  Why this exists: until now a production's intermediates (each shot's clip,
+  the narration, the bed, the cues) only ever existed in a laptop's
+  `target/dougaka/<id>/` and were gone by the next run, so nothing could be
+  re-cut, re-scored or audited after the fact — only the final mp4 survived,
+  inside aozora's blob store. Mirroring every artifact here by the sha2-256 of
+  its own bytes makes a production reproducible from CIDs alone.
+
+  Idempotent by construction: the same bytes are the same CID, so re-storing
+  is a no-op and a re-run that produced identical output costs nothing.
+
+  Auth: env KOTOBASE_ARCHIVE_TOKEN (bearer). Absent -> every put returns nil
+  with a warning and the production continues; storage is a mirror, never a
+  gate on shipping the episode."
+  (:require [kotoba.io :as kio] [clojure.java.io :as io]
+            [kotoba.lang.text :as str]
+            [dougaka.kotobase :as kb])
+  (:import [java.net URI]
+           [java.net.http HttpClient HttpRequest HttpRequest$BodyPublishers
+            HttpResponse$BodyHandlers]
+           [java.security MessageDigest]
+           [java.time Duration]))
+
+(defn token []
+  (let [t (str/trim (str (or (System/getenv "KOTOBASE_ARCHIVE_TOKEN") "")))]
+    (when-not (str/blank? t) t)))
+
+(defn host [] (kb/host (System/getenv "KOTOBASE_ARCHIVE_HOST")))
+
+(defn- warn [& xs]
+  (binding [*out* *err*] (apply println "[kotobase]" xs)))
+
+(defn file-bytes ^bytes [f] (kio/read-all-bytes (io/file f)))
+
+(defn cid-of
+  "File -> its raw CIDv1. This is the name the artifact will have forever."
+  [f]
+  (let [digest (.digest (MessageDigest/getInstance "SHA-256") (file-bytes f))]
+    (kb/raw-cid (map #(bit-and % 0xff) digest))))
+
+(defn put!
+  "Store a file under its own CID. Returns {:cid :url} on success (including
+  when the archive already had it), nil otherwise.
+
+  `kind` picks the stored content-type (:mp4/:wav/:png/:srt/:edn). The server
+  re-derives the digest from the body and rejects a mismatch with 422, so a
+  wrong CID here can never mislabel stored bytes."
+  [f kind]
+  (let [file (io/file f)]
+    (cond
+      (not (.exists file)) (do (warn "no such file:" (str f)) nil)
+      (nil? (token)) (do (warn "skipped" (.getName file)
+                               "— no KOTOBASE_ARCHIVE_TOKEN in env")
+                         nil)
+      :else
+      (try
+        (let [cid (cid-of file)
+              url (kb/archive-url (host) cid)
+              req (-> (HttpRequest/newBuilder (URI/create url))
+                      (.timeout (Duration/ofMinutes 10))
+                      (.header "authorization" (str "Bearer " (token)))
+                      (.header "content-type" (get kb/content-types kind
+                                                   "application/octet-stream"))
+                      (.PUT (HttpRequest$BodyPublishers/ofFile (.toPath file)))
+                      (.build))
+              resp (.send (HttpClient/newHttpClient) req (HttpResponse$BodyHandlers/ofString))
+              status (.statusCode resp)]
+          (if (or (<= 200 status 299) (= 409 status))
+            {:cid cid :url url}
+            (do (warn "PUT" url "->" status) nil)))
+        (catch Exception e (warn "PUT failed:" (.getMessage e)) nil)))))
+
+(defn put-all!
+  "Store a seq of [file kind] pairs. Returns a vector of the successful
+  {:cid :url :file} maps, skipping (and warning about) the rest — a partial
+  mirror is reported honestly rather than failing the production."
+  [pairs]
+  (vec (keep (fn [[f kind]]
+               (when-let [r (put! f kind)]
+                 (assoc r :file (str f))))
+             pairs)))
