@@ -26,7 +26,7 @@
 
 ## timeline 計画と制作の境界
 
-本家 `cloud-itonami/dougaka` は HTTP グラフサーバ + オフライン ffmpeg 実行を持つ。
+本家（この repo の `server/`、旧 `cloud-itonami/dougaka`） は HTTP グラフサーバ + オフライン ffmpeg 実行を持つ。
 この dapp はその計画部をブラウザに残し、画像・動画・声・音については
 Murakumo の公開 generation API に直接接続する。dapp origin は静的資産のみを配る。
 
