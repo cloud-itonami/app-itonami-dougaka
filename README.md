@@ -17,6 +17,21 @@ HTTPS 読み戻しは未完了。旧 `itonami.cloud/sites/app/dougaka/`
 
 > dougaka は名称の比喩で、提携や同一性を主張しない。
 
+## この repo の構成（3 repo を統合済み）
+
+dougaka は以前 3 つの repo に分かれていた。2026-10-28 にこの repo に統合した
+（履歴は `git subtree add` で保持）。
+
+| パス | 中身 | 旧 repo |
+|---|---|---|
+| `/`（`src` `site` `aiueos` `bin`） | ブラウザ内 dapp（計画づくり）と MCP | `cloud-itonami/app-itonami-dougaka` |
+| `server/` | 動画生成サービス（`clj/` の HTTP/XRPC サーバーと ffmpeg パイプライン、`edge/` の Worker `dougaka.itonami.cloud`） | `cloud-itonami/dougaka` |
+| `legacy/app-dougaka/` | `lg_dougaka` 移植の旧実装。`server/` に置き換え済みで、参照用に残す | `cloud-itonami/app-dougaka` |
+
+`server/` と `legacy/` 内の README・設定は統合前のまま（旧 repo 名やパスの記述を含む）。
+`server/edge` の `wrangler.jsonc` のルートは `dougaka.itonami.cloud` で、
+`dougaka.itonami.app` はまだどこにも配線されていない（JUN-403）。
+
 ## 何があって、何が動くか
 
 | 層 | ファイル | 状態 |

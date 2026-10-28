@@ -2,7 +2,7 @@
   "dougaka の adapter — guest（aiueos/dougaka_core.cljk, ns `dougaka.guest`）と
   **同名・同引数順・同結果**の判定関数と、その上の純粋な render 計画モデル。
 
-  本家 dougaka (cloud-itonami/dougaka) の render グラフは timeline を受けて
+  本家 dougaka (この repo の server/、旧 cloud-itonami/dougaka) の render グラフは timeline を受けて
   ffmpeg の組み立て計画（segments / width / height / fps）を作る。ここでは
   その計画部だけを純関数として持つ。mp4 エンコード・生成 AI・B2/Kotobase への
   接続はしない。

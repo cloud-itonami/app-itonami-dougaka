@@ -1,0 +1,8 @@
+{:schema "etzhayyim.repository/v1"
+ :repository "cloud-itonami/app-dougaka"
+ :kind :standalone-app-artifact
+ :canonical-record-format :edn
+ :source-path "60-apps/etzhayyim-project-dougaka"
+ :boundary {:role :video-production-application
+            :production-family "cloud-itonami/ai-gftd-dougaka"
+            :craft-library "kotoba-lang/douga"}}

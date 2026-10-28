@@ -1,0 +1,1 @@
+{:schema 1 :product :dougaka :language :kotoba :source "fabric/guardian.kotoba" :lock "fabric/kotoba.lock.edn" :policy "fabric/host-policy.edn" :host-caps [] :wasm "fabric/guardian.wasm" :sha256 "a5e5735ab43194daa5a0c90c6e8d8b9f792d1587d08ae97bf14e8939ccf9b0fd" :imports 0 :host :node-webassembly :result 6 :verified true}
