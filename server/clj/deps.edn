@@ -50,8 +50,11 @@
        org.clojure/clojure {:mvn/version "1.12.0"}
         ;; douga craft lib (ADR-2607023000) — the timeline→ffmpeg render-plan
         ;; pure functions split out of this repo's old dougaka.ffmpeg-plan.
-        io.github.kotoba-lang/douga {:git/url "https://github.com/kotoba-lang/douga"
-                                     :git/sha "5a1e9ac15a4c370da12c3f8aad75021e8535c8fe"}
+        ;; Now kotoba lib/kotoba.douga (JUN-649).
+        io.github.kotoba-lang/douga
+        {:git/url "https://github.com/kotoba-lang/kotoba.git"
+         :git/sha "64ba9e2e6459e7244ca52945b7b010489d07a008"
+         :deps/root "lib/kotoba.douga"}
         ;; keyframe generation (ADR-2607071500) — the shared ComfyUI gateway
         ;; (config-map instance pattern, ADR-2607011900 correction); its JVM
         ;; branch uses the http-kit/jsonista this deps.edn already declares.
@@ -75,7 +78,8 @@
  {;; Workspace development — use the local lib checkout (no git fetch).
   :dev
   {:override-deps
-   {io.github.kotoba-lang/douga {:local/root "../../../kotoba-lang/douga"}
+   {io.github.kotoba-lang/douga
+        {:local/root "../../../kotoba-lang/kotoba/lib/kotoba.douga"}
     io.github.kotoba-lang/comfyui
         {:local/root "../../../kotoba-lang/kotoba/lib/kotoba.comfyui"}}}
 
