@@ -79,9 +79,9 @@
   :dev
   {:override-deps
    {io.github.kotoba-lang/douga
-        {:local/root "../../../kotoba-lang/kotoba/lib/kotoba.douga"}
+        {:local/root "../../../../kotoba-lang/kotoba/lib/kotoba.douga"}
     io.github.kotoba-lang/comfyui
-        {:local/root "../../../kotoba-lang/kotoba/lib/kotoba.comfyui"}}}
+        {:local/root "../../../../kotoba-lang/kotoba/lib/kotoba.comfyui"}}}
 
   :run
   {:main-opts ["-m" "dougaka.server"]}
