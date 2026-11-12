@@ -42,3 +42,19 @@
                                            (let [vs (get s "voice-blob-keys")]
                                              (if (seq vs) (str " voices=" (text/join "," vs)) " (silent)"))))
                                     segs)))))
+
+(defn marketing-share-plan
+  "検証済み marketing map + 任意の render plan map -> 配信用の表示計画。
+  送信はしない。各 target に title/copy を配り、plan がある場合は要約を添える。"
+  [marketing plan]
+  (let [video (when (map? plan)
+                {"kind" "render-plan"
+                 "summary" (pretty-plan plan)
+                 "segment-count" (get plan "segment-count")})]
+    {"title" (get marketing "title")
+     "copy" (get marketing "copy")
+     "targets" (vec (map (fn [t] {"target" t
+                                  "title" (get marketing "title")
+                                  "copy" (get marketing "copy")
+                                  "video" video})
+                         (or (get marketing "targets") [])))}))

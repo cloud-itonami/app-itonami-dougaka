@@ -86,6 +86,11 @@ export async function runAutoPublish(spec, { call, publish, journal, sleep = ms 
   } finally { await release(); }
 }
 
+const isLivePid = (pid) => {
+  try { process.kill(pid, 0); return true; }
+  catch (error) { return error.code !== 'ESRCH'; }
+};
+
 export function fileJournal(directory) {
   const root = resolve(directory);
   const path = id => join(root, `${id}.json`);
@@ -95,12 +100,27 @@ export function fileJournal(directory) {
     finally { await handle.close(); }
   };
   return {
+    // A crashed holder leaves its lock behind. Break a lock only when its
+    // recorded pid is provably dead; a live holder (or an unreadable lock)
+    // keeps EEXIST so two publishers never run one request twice.
     async acquire(id) {
       const lock = join(root, `.${id}.lock`);
-      const handle = await open(lock, 'wx', 0o600);
-      try { await handle.writeFile(`${process.pid}\n`); }
-      catch (error) { await handle.close(); await unlink(lock); throw error; }
-      return async () => { await handle.close(); await unlink(lock); };
+      const take = async () => {
+        const handle = await open(lock, 'wx', 0o600);
+        try { await handle.writeFile(`${process.pid}\n`); }
+        catch (error) { await handle.close(); await unlink(lock); throw error; }
+        return async () => { await handle.close(); await unlink(lock); };
+      };
+      try { return await take(); }
+      catch (error) {
+        if (error.code !== 'EEXIST') throw error;
+        let owner = 0;
+        try { owner = Number.parseInt(String(await readFile(lock, 'utf8')).trim(), 10); }
+        catch { throw error; }
+        if (!Number.isSafeInteger(owner) || owner <= 0 || isLivePid(owner)) throw error;
+        await unlink(lock);
+        return take();
+      }
     },
     async read(id) {
       try { return JSON.parse(await readFile(path(id), 'utf8')); }

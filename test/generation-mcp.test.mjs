@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { handle } from '../bin/dougaka-generation-mcp.mjs';
+import { handle, parseBoundedJson } from '../bin/dougaka-generation-mcp.mjs';
 
 test('generation MCP exposes five modalities and job lifecycle', async () => {
   const response = await handle({ jsonrpc: '2.0', id: 1, method: 'tools/list' });
@@ -17,4 +17,11 @@ test('invalid job ids fail before any network request', async () => {
     params: { name: 'dougaka_cancel_job', arguments: { job_id: '../bad' } } });
   assert.equal(response.result.isError, true);
   assert.match(response.result.content[0].text, /invalid job_id/);
+});
+
+test('oversized or broken JSON bodies fail closed', () => {
+  assert.deepEqual(parseBoundedJson('{"ok":true}', 1024), { ok: true });
+  assert.throws(() => parseBoundedJson(`{"ok":"${'x'.repeat(1024)}"}`, 1024), /exceeds/);
+  assert.throws(() => parseBoundedJson('{broken', 1024), /parse failed/);
+  assert.throws(() => parseBoundedJson(null, 1024), /exceeds/);
 });

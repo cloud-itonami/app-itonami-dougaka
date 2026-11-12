@@ -22,6 +22,7 @@
                            :sha256 "eb1caab0619c5ca4428df637ae140bc3774582fa3f0b95a44bbd39b27b6b9086"}]}
  :modules [{:from "site/studio-contract.js" :to "studio-contract.js"}
            {:from "site/studio-core.js" :to "studio-core.js"}
+           {:from "site/studio-local.js" :to "studio-local.js"}
            {:from "site/studio-host.js" :to "studio-host.js"}
            {:from "site/studio.css" :to "studio.css"}]
  :external [{:repo "kotoba-lang/text" :sha "bc551a3ecc68e551ba1dd2fcb22d5f1b8dd7805d"

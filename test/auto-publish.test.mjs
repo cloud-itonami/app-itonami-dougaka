@@ -1,10 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { mkdtemp, writeFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { publishConfigured, runAutoPublish } from '../bin/dougaka-auto-publish-core.mjs';
+import { fileJournal, publishConfigured, runAutoPublish } from '../bin/dougaka-auto-publish-core.mjs';
 
 const input = { request_id: 'example-1', mode: 'image', prompt: 'A blue lantern', model: 'flux-dev' };
 function memoryJournal() {
@@ -59,6 +60,25 @@ test('ambiguous submission is never retried and request id cannot change input',
   assert.equal(submissions, 1);
   await assert.rejects(runAutoPublish({ ...input, prompt: 'changed' }, { journal,
     publish: async () => ({}), call: async () => ({}) }), /different input/);
+});
+
+test('stale journal lock from a dead process is broken; a live lock is kept', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'dougaka-journal-'));
+  try {
+    const journal = fileJournal(dir);
+    const deadPid = spawnSync(process.execPath, ['--version']).pid;
+    assert.ok(Number.isSafeInteger(deadPid));
+    await writeFile(join(dir, '.req-1.lock'), `${deadPid}\n`);
+    const release = await journal.acquire('req-1');
+    await release();
+    const held = await journal.acquire('req-2');
+    await assert.rejects(journal.acquire('req-2'), /EEXIST/);
+    await held();
+    const again = await journal.acquire('req-2');
+    await again();
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
 });
 
 test('own-node publisher receipt must match the verified artifact', async () => {

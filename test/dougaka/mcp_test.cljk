@@ -6,8 +6,32 @@
 
 (deftest tools-list
   (let [res (mcp/handle-request {"jsonrpc" "2.0" "id" 1 "method" "tools/list" "params" {}})]
-    (is (= ["dougaka_validate" "dougaka_plan"]
+    (is (= ["dougaka_validate" "dougaka_plan"
+            "dougaka_project_validate" "dougaka_brandkit_validate"
+            "dougaka_canvas_validate" "dougaka_marketing_validate"
+            "dougaka_marketing_plan"]
            (mapv #(get % "name") (get-in res ["result" "tools"]))))))
+
+(deftest local-validators-accept-shapes
+  (doseq [[tool text] {"dougaka_project_validate" "{\"name\":\"秋の短編\"}"
+                       "dougaka_brandkit_validate" "{\"name\":\"GFTD\",\"colors\":[\"#112233\"]}"
+                       "dougaka_canvas_validate" "{\"nodes\":[{\"id\":\"a\",\"kind\":\"image\"}],\"edges\":[]}"
+                       "dougaka_marketing_validate" "{\"title\":\"予告\",\"targets\":[\"web\"]}"}]
+    (let [res (mcp/call-tool tool {"text" text})
+          body (js->clj (js/JSON.parse (get-in res ["content" 0 "text"])) :keywordize-keys false)]
+      (is (= false (get res "isError")))
+      (is (= true (get body "ok"))))))
+
+(deftest local-validators-reject-with-named-errors
+  (doseq [[tool text] {"dougaka_project_validate" "{}"
+                       "dougaka_brandkit_validate" "{\"name\":\"x\",\"colors\":[\"red\"]}"
+                       "dougaka_canvas_validate" "{\"nodes\":[{\"id\":\"a\",\"kind\":\"image\"}],\"edges\":[{\"from\":\"a\",\"to\":\"ghost\"}]}"
+                       "dougaka_marketing_validate" (str "{\"copy\":\"" (apply str (repeat 4001 "a")) "\"}")}]
+    (let [res (mcp/call-tool tool {"text" text})
+          body (js->clj (js/JSON.parse (get-in res ["content" 0 "text"])) :keywordize-keys false)]
+      (is (= false (get res "isError")))
+      (is (= false (get body "ok")))
+      (is (= 1 (count (get body "errors")))))))
 
 (deftest validate-tool-ok
   (let [res (mcp/call-tool "dougaka_validate" {"text" ingest/sample-timeline})
@@ -35,6 +59,38 @@
     (is (= false (get res "isError")))
     (is (= false (get body "ok")))
     (is (= 1 (count (get body "errors"))))))
+
+(deftest marketing-plan-attaches-render-plan
+  (let [res (mcp/call-tool "dougaka_marketing_plan"
+                           {"text" "{\"title\":\"予告\",\"targets\":[\"web\",\"signage\"]}"
+                            "timeline" ingest/sample-timeline})
+        body (js->clj (js/JSON.parse (get-in res ["content" 0 "text"])) :keywordize-keys false)]
+    (is (= false (get res "isError")))
+    (is (= true (get body "ok")))
+    (is (= 2 (count (get (get body "share") "targets"))))
+    (let [share (get body "share")]
+      (is (= ["web" "signage"] (mapv #(get % "target") (get share "targets"))))
+      (is (= 2 (get-in (first (get share "targets")) ["video" "segment-count"]))))))
+
+(deftest marketing-plan-without-timeline-has-no-video
+  (let [res (mcp/call-tool "dougaka_marketing_plan" {"text" "{\"title\":\"予告\",\"targets\":[\"web\"]}"})
+        body (js->clj (js/JSON.parse (get-in res ["content" 0 "text"])) :keywordize-keys false)]
+    (is (= false (get res "isError")))
+    (is (= true (get body "ok")))
+    (is (nil? (get-in (first (get (get body "share") "targets")) ["video"])))))
+
+(deftest marketing-plan-rejects-bad-inputs
+  (let [bad-marketing (mcp/call-tool "dougaka_marketing_plan"
+                                     {"text" (str "{\"copy\":\"" (apply str (repeat 4001 "a")) "\"}")})
+        bad-body (js->clj (js/JSON.parse (get-in bad-marketing ["content" 0 "text"])) :keywordize-keys false)
+        bad-timeline (mcp/call-tool "dougaka_marketing_plan"
+                                    {"text" "{\"title\":\"予告\"}" "timeline" "{\"scenes\":[]}"})
+        timeline-body (js->clj (js/JSON.parse (get-in bad-timeline ["content" 0 "text"])) :keywordize-keys false)]
+    (is (= false (get bad-marketing "isError")))
+    (is (= false (get bad-body "ok")))
+    (is (= 1 (count (get bad-body "errors"))))
+    (is (= false (get bad-timeline "isError")))
+    (is (= false (get timeline-body "ok")))))
 
 (deftest unknown-tool-is-error-result
   (let [res (mcp/call-tool "nope" {})]

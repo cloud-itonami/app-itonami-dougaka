@@ -17,6 +17,14 @@ const fail = message => ({ content: [text({ error: message })], isError: true })
 const idPattern = /^[A-Za-z0-9_-]{1,128}$/;
 const string = (description, extra = {}) => ({ type: 'string', description, ...extra });
 
+// Fail-closed JSON parsing with an explicit body budget. A misbehaving
+// service must not grow the MCP process without bound through response.json().
+export const maxJsonBytes = 4 * 1024 * 1024;
+export function parseBoundedJson(text, maxBytes = maxJsonBytes) {
+  if (typeof text !== 'string' || Buffer.byteLength(text) > maxBytes) throw Error('response exceeds JSON body limit');
+  try { return JSON.parse(text); } catch { throw Error('response JSON parse failed'); }
+}
+
 const tools = [
   { name: 'dougaka_models', description: 'Read the public Murakumo generation catalog and execution availability.',
     inputSchema: { type: 'object', properties: {}, additionalProperties: false } },
@@ -80,7 +88,7 @@ async function request(path, method = 'GET', body = undefined, binary = false) {
   if (!response.ok) throw Error(`Murakumo returned HTTP ${response.status}`);
   if (binary) return response;
   if (response.status === 204) return {};
-  return response.json();
+  return parseBoundedJson(await response.text());
 }
 
 async function call(name, args) {
