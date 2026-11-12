@@ -245,9 +245,48 @@
                     "required" ["text"]
                     "additionalProperties" false}}))
 
+(defn marketing-plan
+  "dougaka_marketing_plan。marketing JSON と任意の timeline JSON ->
+  配信用の表示計画。送信も保存もしない。"
+  [{:strs [text timeline]}]
+  (let [checked (validate-local-shape "marketing" {"text" text})]
+    (if-let [reason (:error checked)]
+      checked
+      (let [mres (:result checked)]
+        (if-not (get mres "ok")
+          {:result mres}
+          (if (text/blank? (str timeline))
+            {:result {"ok" true "errors" []
+                      "share" (export/marketing-share-plan (ingest/parse-json text) nil)}}
+            (let [{tl :timeline error :error} (try (ingest/ingest timeline)
+                                                   (catch :default _ {:error "parse-failed"}))]
+              (if error
+                {:result {"ok" false "errors" [error]}}
+                (let [{:keys [ok? errors]} (core/validate tl)]
+                  (if-not ok?
+                    {:result {"ok" false "errors" errors}}
+                    {:result {"ok" true "errors" []
+                              "share" (export/marketing-share-plan
+                                       (ingest/parse-json text)
+                                       (core/build-plan tl {}))}}))))))))))
+
+(def ^:private marketing-plan-tool
+  {"name" "dougaka_marketing_plan"
+   "description" (str "Build a display-only marketing share plan from a marketing JSON "
+                      "(title/copy/targets) with an optional timeline JSON attached as a "
+                      "render-plan summary. Pure: nothing is sent, published or stored.")
+   "inputSchema" {"type" "object"
+                  "properties" {"text" {"type" "string"
+                                        "description" "Marketing JSON text, at most 5 MiB of UTF-8."}
+                                "timeline" {"type" "string"
+                                             "description" "Optional timeline JSON text for the attached video plan."}}
+                  "required" ["text"]
+                  "additionalProperties" false}})
+
 (def tools
-  "tools/list が返す tool 宣言。base 2 件に browser-local 管理検証 4 件を束ねる。"
-  (into base-tools (map local-tool ["project" "brand-kit" "canvas" "marketing"])))
+  "tools/list が返す tool 宣言。base 2 件に browser-local 管理検証 4 件と配信用表示計画 1 件を束ねる。"
+  (conj (into base-tools (map local-tool ["project" "brand-kit" "canvas" "marketing"]))
+        marketing-plan-tool))
 
 (def ^:private tool-index (into {} (map (juxt #(get % "name") identity)) tools))
 
@@ -257,7 +296,8 @@
    "dougaka_project_validate" (partial validate-local-shape "project")
    "dougaka_brandkit_validate" (partial validate-local-shape "brand-kit")
    "dougaka_canvas_validate" (partial validate-local-shape "canvas")
-   "dougaka_marketing_validate" (partial validate-local-shape "marketing")})
+   "dougaka_marketing_validate" (partial validate-local-shape "marketing")
+   "dougaka_marketing_plan" marketing-plan})
 
 (defn call-tool
   "tool 名と引数（文字列キーの map）→ MCP の tools/call 結果。"
