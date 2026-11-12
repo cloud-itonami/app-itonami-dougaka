@@ -6,7 +6,7 @@
   "license": "AGPL-3.0-or-later",
   "description": "dougaka — Itonami の画像・動画・音声制作 dapp",
   "scripts": {
-    "test": "kbb --backend sci --classpath src:test:../../kotoba-lang/text/src test/run_tests.cljk && node --test test/studio.test.mjs test/generation-mcp.test.mjs test/auto-publish.test.mjs",
+    "test": "kbb --backend sci --classpath src:test:../../kotoba-lang/text/src test/run_tests.cljk && node --test test/studio.test.mjs test/studio-local.test.mjs test/generation-mcp.test.mjs test/auto-publish.test.mjs",
     "check:guest": "../../kotoba-lang/amu/bin/amu check aiueos/dougaka_core.cljk",
     "test:guest": "../../kotoba-lang/amu/bin/amu test aiueos/dougaka_core.cljk",
     "build:guest": "../../kotoba-lang/amu/bin/amu compile aiueos/dougaka_core.cljk --target wasm32-browser --output aiueos/dougaka_core.wasm",

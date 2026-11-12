@@ -2,9 +2,10 @@ import {
   clientRuntimeConnectSrc, clientRuntimeProblems, createClientConsentHost,
   createClientOperationBroker,
 } from './kotoba-client-runtime.js';
-import { generationOrigin, hostSupportedOperations, requestedCapabilities,
+import { generationOrigin, hostSupportedOperations, localSelector, localService, requestedCapabilities,
   runtimeDescriptor, selector } from './studio-contract.js';
 import { artifactDigest, buildGenerationRequest, jobIdFrom, modelsFor, modes } from './studio-core.js';
+import { DOMAINS, createLocalStore } from './studio-local.js';
 
 const root = document.getElementById('dougaka-studio');
 if (!root) throw new Error('Dougaka Studio mount is missing');
@@ -17,9 +18,19 @@ if (clientRuntimeConnectSrc(runtimeDescriptor, requestedCapabilities)
 // eligibility ceiling never grants consent: the canonical modal asks again for
 // every catalog, submission, status, cancellation and artifact request.
 const consentHost = createClientConsentHost();
+// Browser-local Higgsfield management state: localStorage behind the same
+// per-operation consent broker. Handlers never fetch; the canonical broker
+// rejects any undeclared operation before consent is even asked.
+const localStore = createLocalStore(window.localStorage);
+const localOp = (domain) => async ({ payload }) => {
+  if (payload?.mode === 'get') return localStore.read(domain);
+  if (payload?.mode === 'set') return localStore.write(domain, payload?.value);
+  return { ok: false, errors: ['unknown-mode'] };
+};
 const broker = createClientOperationBroker({
   runtime: runtimeDescriptor, requestedCapabilities,
   approvedOperations: runtimeDescriptor.operations, hostSupportedOperations, consentHost,
+  browserAdapters: { [localService]: Object.fromEntries(DOMAINS.map(domain => [domain, localOp(domain)])) },
 });
 const state = { mode: 'image', catalog: null, token: '', jobs: [], selected: null, objectUrl: null };
 const $ = id => root.querySelector(`#${id}`);
@@ -60,6 +71,18 @@ root.innerHTML = `<div class="studio-shell">
       <button id="studio-cancel" type="button" disabled>ジョブを中止</button></div>
     <div id="studio-preview" class="studio-preview" aria-live="polite"></div>
   </section></div>
+  <section class="studio-card studio-local" aria-label="制作管理（ブラウザ内）">
+    <div class="studio-card-head"><h2>制作管理</h2><span>このブラウザだけ · 保存も毎回確認</span></div>
+    <div class="studio-control"><label for="studio-local-domain">管理対象</label>
+      <select id="studio-local-domain"><option value="project">企画</option>
+      <option value="brand-kit">ブランド</option><option value="canvas">構成盤</option>
+      <option value="marketing">広告展開</option></select></div>
+    <div class="studio-control"><label for="studio-local-value">内容（JSON）</label>
+      <textarea id="studio-local-value" rows="4" spellcheck="false" placeholder='{"name": "秋の短編"}'></textarea></div>
+    <div class="studio-actions"><button id="studio-local-read" type="button">読む</button>
+      <button id="studio-local-save" type="button">保存</button></div>
+    <p id="studio-local-message" class="studio-message" role="status">企画・ブランド・構成盤・広告展開は外部に送りません。</p>
+  </section>
   <p class="studio-footnote">Murakumo のジョブは外部サービス上で実行されます。生成と結果取得は毎回確認を求めます。画面内の履歴はこのタブを閉じると消えます。</p>
 </div>`;
 
@@ -74,6 +97,10 @@ const errorText = error => {
     ? '操作を取り消しました。Murakumo には送信していません。' : message;
 };
 const jobPath = (job, suffix = '') => `${generationOrigin}/api/v1/generation/jobs/${encodeURIComponent(job.id)}${suffix}`;
+
+async function invokeLocal(domain, body) {
+  return broker.invoke(localSelector(domain), body);
+}
 
 async function invoke(name, url, method = 'GET', body = undefined) {
   const headers = { accept: 'application/json' };
@@ -239,6 +266,29 @@ $('studio-artifact').addEventListener('click', event => run(event.currentTarget,
   link.href = state.objectUrl;
   link.download = `${job.id}.${job.mode === 'image' ? 'png' : job.mode === 'video' ? 'mp4' : 'wav'}`;
   preview.append(link); setMessage(`ジョブ ${job.id} の成果物を SHA-256 で検証しました。`);
+}));
+
+const setLocalMessage = (message, error = false) => {
+  const node = $('studio-local-message');
+  node.textContent = message;
+  node.dataset.tone = error ? 'error' : 'info';
+};
+
+$('studio-local-read').addEventListener('click', event => run(event.currentTarget, async () => {
+  const domain = $('studio-local-domain').value;
+  const result = await invokeLocal(domain, { mode: 'get' });
+  if (!result?.ok) throw new Error(`読み込めません: ${(result?.errors ?? ['unknown']).join(', ')}`);
+  $('studio-local-value').value = result.value == null ? '' : JSON.stringify(result.value, null, 2);
+  setLocalMessage(`${domain} を読み込みました。外部には送っていません。`);
+}));
+$('studio-local-save').addEventListener('click', event => run(event.currentTarget, async () => {
+  const domain = $('studio-local-domain').value;
+  let value;
+  try { value = JSON.parse($('studio-local-value').value || 'null'); }
+  catch { throw new Error('JSON ではありません'); }
+  const result = await invokeLocal(domain, { mode: 'set', value });
+  if (!result?.ok) throw new Error(`保存できません: ${(result?.errors ?? ['unknown']).join(', ')}`);
+  setLocalMessage(`${domain} をこのブラウザに保存しました。`);
 }));
 
 window.addEventListener('pagehide', () => {
