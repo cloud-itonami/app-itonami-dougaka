@@ -42,7 +42,11 @@
       (let [r (exchange cwd "tools/list" {})]
         (is (= 0 (:status r)) (:stderr r))
         (is (= "dougaka" (get-in (by-id r 1) ["result" "serverInfo" "name"])))
-        (is (= 2 (count (get-in (by-id r 2) ["result" "tools"]))))
+        (is (= 6 (count (get-in (by-id r 2) ["result" "tools"]))))
+        (is (= ["dougaka_validate" "dougaka_plan"
+                "dougaka_project_validate" "dougaka_brandkit_validate"
+                "dougaka_canvas_validate" "dougaka_marketing_validate"]
+               (mapv #(get % "name") (get-in (by-id r 2) ["result" "tools"]))))
         (testing "stdout は JSON-RPC の行だけ（通知への応答も無い）"
           (is (= 2 (count (:responses r))))
           (is (every? #(= "2.0" (get % "jsonrpc")) (:responses r))))))))

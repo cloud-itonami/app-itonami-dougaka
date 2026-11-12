@@ -6,8 +6,31 @@
 
 (deftest tools-list
   (let [res (mcp/handle-request {"jsonrpc" "2.0" "id" 1 "method" "tools/list" "params" {}})]
-    (is (= ["dougaka_validate" "dougaka_plan"]
+    (is (= ["dougaka_validate" "dougaka_plan"
+            "dougaka_project_validate" "dougaka_brandkit_validate"
+            "dougaka_canvas_validate" "dougaka_marketing_validate"]
            (mapv #(get % "name") (get-in res ["result" "tools"]))))))
+
+(deftest local-validators-accept-shapes
+  (doseq [[tool text] {"dougaka_project_validate" "{\"name\":\"秋の短編\"}"
+                       "dougaka_brandkit_validate" "{\"name\":\"GFTD\",\"colors\":[\"#112233\"]}"
+                       "dougaka_canvas_validate" "{\"nodes\":[{\"id\":\"a\",\"kind\":\"image\"}],\"edges\":[]}"
+                       "dougaka_marketing_validate" "{\"title\":\"予告\",\"targets\":[\"web\"]}"}]
+    (let [res (mcp/call-tool tool {"text" text})
+          body (js->clj (js/JSON.parse (get-in res ["content" 0 "text"])) :keywordize-keys false)]
+      (is (= false (get res "isError")))
+      (is (= true (get body "ok"))))))
+
+(deftest local-validators-reject-with-named-errors
+  (doseq [[tool text] {"dougaka_project_validate" "{}"
+                       "dougaka_brandkit_validate" "{\"name\":\"x\",\"colors\":[\"red\"]}"
+                       "dougaka_canvas_validate" "{\"nodes\":[{\"id\":\"a\",\"kind\":\"image\"}],\"edges\":[{\"from\":\"a\",\"to\":\"ghost\"}]}"
+                       "dougaka_marketing_validate" (str "{\"copy\":\"" (apply str (repeat 4001 "a")) "\"}")}]
+    (let [res (mcp/call-tool tool {"text" text})
+          body (js->clj (js/JSON.parse (get-in res ["content" 0 "text"])) :keywordize-keys false)]
+      (is (= false (get res "isError")))
+      (is (= false (get body "ok")))
+      (is (= 1 (count (get body "errors")))))))
 
 (deftest validate-tool-ok
   (let [res (mcp/call-tool "dougaka_validate" {"text" ingest/sample-timeline})

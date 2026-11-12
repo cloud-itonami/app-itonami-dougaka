@@ -37,7 +37,7 @@
 
 ;; ───────── tool の宣言 ─────────
 
-(def tools
+(def ^:private base-tools
   [{"name" "dougaka_validate"
     "description" (str "Validate a dougaka timeline JSON (scenes/assets/lines): scene count 1..24, "
                        "every scene has a scene frame, estimated duration within 120s. "
@@ -59,7 +59,7 @@
                    "required" ["text"]
                    "additionalProperties" false}}])
 
-(def ^:private tool-index (into {} (map (juxt #(get % "name") identity)) tools))
+;; tools / tool-index / handlers は local-tool 定義の後に束ねる（前方参照の禁止）。
 
 ;; ───────── 入力の検査 ─────────
 
@@ -120,9 +120,144 @@
                         "summary" (export/pretty-plan plan)
                         "ffmpeg" (export/ffmpeg-script plan)}})))))))
 
+;; ───────── browser-local 管理状態の検証 ─────────
+;; site/studio-local.js（localstorage 配下、schema itonami.dougaka.v1）と同形の
+;; 判定を MCP 側の純関数として持つ。入力は caller が持つ JSON テキストだけで、
+;; 送信も保存もしない。tool 名は dougaka_<domain>_validate。
+
+(defn- local-name? [v max] (and (string? v) (<= 1 (count v) max)))
+(defn- local-id? [v] (and (string? v) (some? (text/re-matches #"[A-Za-z0-9._-]{1,64}" v))))
+(defn- local-job-id? [v] (and (string? v) (some? (text/re-matches #"[A-Za-z0-9_-]{1,128}" v))))
+(defn- local-hex-color? [v] (and (string? v) (some? (text/re-matches #"#[0-9a-fA-F]{6}" v))))
+(defn- local-sha256? [v] (and (string? v) (some? (text/re-matches #"[0-9a-fA-F]{64}" v))))
+
+(defn- local-settings-errors [settings]
+  (cond
+    (nil? settings) []
+    (not (map? settings)) ["bad-settings"]
+    (< 16 (count settings)) ["settings-too-large"]
+    :else (if (every? local-id? (keys settings)) [] ["bad-setting-key"])))
+
+(defn- validate-local-project [v]
+  (cond
+    (not (map? v)) ["bad-project"]
+    (not (local-name? (get v "name") 120)) ["missing-name: project.name is 1..120 chars"]
+    :else
+    (let [jobs (get v "jobs")]
+      (cond
+        (nil? jobs) (local-settings-errors (get v "settings"))
+        (or (not (sequential? jobs)) (< 128 (count jobs)) (not (every? local-job-id? jobs)))
+        (conj (local-settings-errors (get v "settings")) "bad-jobs: up to 128 job ids")
+        :else (local-settings-errors (get v "settings"))))))
+
+(defn- validate-local-brand-kit [v]
+  (cond
+    (not (map? v)) ["bad-brand-kit"]
+    (not (local-name? (get v "name") 120)) ["missing-name: brand-kit.name is 1..120 chars"]
+    :else
+    (let [colors (get v "colors")
+          fonts (get v "fonts")
+          assets (get v "assets")]
+      (vec (concat
+            (when (and (some? colors)
+                       (or (not (sequential? colors)) (< 32 (count colors))
+                           (not (every? local-hex-color? colors))))
+              ["bad-color: #rrggbb up to 32"])
+            (when (and (some? fonts)
+                       (or (not (sequential? fonts)) (< 32 (count fonts))
+                           (not (every? #(local-name? % 120) fonts))))
+              ["bad-font"])
+            (when (and (some? assets)
+                       (or (not (sequential? assets)) (< 128 (count assets))
+                           (not (every? #(and (map? %) (local-name? (get % "label") 120)
+                                              (let [h (get % "hash")] (or (nil? h) (local-sha256? h))))
+                                        assets))))
+              ["bad-assets: up to 128 {label, hash?}"]))))))
+
+(defn- validate-local-canvas [v]
+  (cond
+    (not (map? v)) ["bad-canvas"]
+    :else
+    (let [nodes (get v "nodes")
+          edges (get v "edges")
+          node-ok? (fn [n] (and (map? n) (local-id? (get n "id")) (local-name? (get n "kind") 64)
+                                (let [label (get n "label")] (or (nil? label) (local-name? label 120)))))]
+      (cond
+        (or (not (sequential? nodes)) (< 256 (count nodes)) (not (every? node-ok? nodes)))
+        ["bad-nodes: up to 256 {id, kind, label?}"]
+        (not= (count nodes) (count (distinct (map #(get % "id") nodes))))
+        ["duplicate-node-id"]
+        (or (not (sequential? edges)) (< 512 (count edges))
+            (not (every? #(and (map? %) (string? (get % "from")) (string? (get % "to"))) edges)))
+        ["bad-edges: up to 512 {from, to}"]
+        :else
+        (let [ids (set (map #(get % "id") nodes))
+              bad (filter #(or (not (contains? ids (get % "from"))) (not (contains? ids (get % "to")))) edges)]
+          (if (seq bad)
+            [(str "dangling-edge: " (get (first bad) "from") " -> " (get (first bad) "to"))]
+            []))))))
+
+(defn- validate-local-marketing [v]
+  (cond
+    (not (map? v)) ["bad-marketing"]
+    :else
+    (let [title (get v "title")
+          copy (get v "copy")
+          targets (get v "targets")]
+      (vec (concat
+            (when (and (some? title) (not (local-name? title 120))) ["bad-title"])
+            (when (and (some? copy) (or (not (string? copy)) (< 4000 (count copy)))) ["copy-too-long: 4000 chars"])
+            (when (and (some? targets)
+                       (or (not (sequential? targets)) (< 32 (count targets))
+                           (not (every? #(local-name? % 120) targets))))
+              ["bad-targets: up to 32 names"]))))))
+
+(def ^:private local-validators
+  {"project" validate-local-project
+   "brand-kit" validate-local-brand-kit
+   "canvas" validate-local-canvas
+   "marketing" validate-local-marketing})
+
+(defn validate-local-shape
+  "domain（project/brand-kit/canvas/marketing）と JSON テキスト -> {:result} か {:error}。
+  送信も保存もしない純粋検証。"
+  [domain {:strs [text]}]
+  (cond
+    (nil? (get local-validators domain)) (error-result (str "unknown-domain: " domain))
+    (> (utf8-length text) max-input-bytes) (error-result "input-too-large: text exceeds 5 MiB")
+    (text/blank? text) (error-result "empty-input: text is blank")
+    :else
+    (let [v (try (ingest/parse-json text) (catch :default _ ::bad-json))]
+      (cond
+        (= v ::bad-json) (error-result "parse-failed")
+        (not (map? v)) (error-result "shape-must-be-a-map")
+        :else (let [errors ((get local-validators domain) v)]
+                {:result {"ok" (empty? errors) "errors" errors "domain" domain}})))))
+
+(def ^:private local-tool
+  (fn [domain]
+    {"name" (str "dougaka_" (text/replace domain "-" "") "_validate")
+     "description" (str "Validate a dougaka " domain " JSON (browser-local Higgsfield management state). "
+                        "Pure: returns named errors, sends and stores nothing.")
+     "inputSchema" {"type" "object"
+                    "properties" {"text" {"type" "string"
+                                          "description" "Management-state JSON text, at most 5 MiB of UTF-8."}}
+                    "required" ["text"]
+                    "additionalProperties" false}}))
+
+(def tools
+  "tools/list が返す tool 宣言。base 2 件に browser-local 管理検証 4 件を束ねる。"
+  (into base-tools (map local-tool ["project" "brand-kit" "canvas" "marketing"])))
+
+(def ^:private tool-index (into {} (map (juxt #(get % "name") identity)) tools))
+
 (def ^:private handlers
   {"dougaka_validate" validate-timeline
-   "dougaka_plan" plan-timeline})
+   "dougaka_plan" plan-timeline
+   "dougaka_project_validate" (partial validate-local-shape "project")
+   "dougaka_brandkit_validate" (partial validate-local-shape "brand-kit")
+   "dougaka_canvas_validate" (partial validate-local-shape "canvas")
+   "dougaka_marketing_validate" (partial validate-local-shape "marketing")})
 
 (defn call-tool
   "tool 名と引数（文字列キーの map）→ MCP の tools/call 結果。"
