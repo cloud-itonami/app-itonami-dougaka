@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="{{CSP}}">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light">
+<meta name="theme-color" content="#ffffff">
+<title>{{TITLE}}</title>
+<meta name="description" content="画像・動画・音声を Itonami のモデル基盤で制作します。Murakumo への操作は毎回確認します。timeline の ffmpeg 計画はブラウザ内で作ります。">
+<link rel="stylesheet" href="./dds.css">
+<link rel="stylesheet" href="./studio.css">
+<link rel="stylesheet" href="./kotoba-client-consent.css">
+<script type="module" src="./studio-host.js"></script>
+<script src="./vendor/react.production.min.js"></script>
+<script src="./vendor/react-dom.production.min.js"></script>
+<script src="./vendor/scittle.js"></script>
+<script src="./vendor/scittle.reagent.js"></script>
+<script src="./vendor/scittle.re-frame.js"></script>
+<script type="application/x-scittle" src="./kotoba/lang/text.cljs"></script>
+<script type="application/x-scittle" src="./dougaka/core.cljs"></script>
+<script type="application/x-scittle" src="./dougaka/ingest.cljs"></script>
+<script type="application/x-scittle" src="./dougaka/export.cljs"></script>
+<script type="application/x-scittle" src="./dougaka/view.cljs"></script>
+<script type="application/x-scittle" src="./app.cljs"></script>
+</head>
+<body>
+<main>
+<div id="dougaka-studio"><p>Dougaka Studio を読み込んでいます。JavaScript が使えない場合は、下の動画組み立てプランを利用できます。</p></div>
+<details class="dougaka-plan-details">
+<summary>timeline から ffmpeg 組み立て計画を作る</summary>
+<div id="app"><p>timeline 計画は JavaScript で描画されます。</p></div>
+</details>
+</main>
+<noscript><p>この app は JavaScript を使います。timeline の ffmpeg 組み立て計画はブラウザ内で作ります。</p></noscript>
+</body>
+</html>
