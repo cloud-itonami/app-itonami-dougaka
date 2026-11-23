@@ -1,0 +1,22 @@
+{
+  "name": "app-itonami-dougaka",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "license": "AGPL-3.0-or-later",
+  "description": "dougaka Studio — Itonami の画像・動画・音声制作 dapp (Tauri v3 / Awai Android)",
+  "itonami": {
+    "id": "network.itonami.dougaka",
+    "title": "dougaka Studio — Itonami メディア制作",
+    "source": "app-itonami-dougaka"
+  },
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "test": "npm run build && node --test test/*.test.mjs",
+    "tauri": "tauri",
+    "build:android": "sh scripts/android-apk.sh"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "3.0.0-alpha.6"
+  }
+}

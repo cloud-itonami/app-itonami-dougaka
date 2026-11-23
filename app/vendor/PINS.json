@@ -1,0 +1,16 @@
+{
+  "license": "Apache-2.0",
+  "notice": "NOTICE",
+  "files": {
+    "kotoba-client-runtime.js": "7f760128c3a58098123c31ec3dd34b9c871932e3933f2c952facc4ab0e647212",
+    "kotoba-client-consent.css": "eb1caab0619c5ca4428df637ae140bc3774582fa3f0b95a44bbd39b27b6b9086",
+    "kotoba/lang/text.cljs": "1443b860b807731a59236d07e1184f311a03b82dcf307ca62b11e0dba49a36de",
+    "dds.css": "86ed3735a051817b93e8bdf281354a112675b3b45b96b61dacb6310cea818ce9"
+  },
+  "provenance": {
+    "kotoba-client-runtime.js": "site/site.edn :client-runtime (kotoba-lang/wasm-webcomponent e00ae75e1c589f76b4f53a88a5e3256c98c9e162, src/kotoba-client-runtime.js), byte-identical copy from the published site build (cloud-itonami public/sites/app/dougaka/)",
+    "kotoba-client-consent.css": "site/site.edn :client-runtime (same revision, src/kotoba-client-consent.css), byte-identical copy from the published site build",
+    "kotoba/lang/text.cljs": "site/site.edn :external (kotoba-lang/text bc551a3ecc68e551ba1dd2fcb22d5f1b8dd7805d, src/kotoba/lang/text.cljk), byte-identical copy from the published site build",
+    "dds.css": "jp-go-digital-design-system resources/jp_go_dds/dds.css (digital-go-jp design-system-example-components-html 3b34f4c3553fa3bee90bfd8b6fe962ac3055107d, MIT)"
+  }
+}

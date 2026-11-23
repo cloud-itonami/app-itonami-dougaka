@@ -1,0 +1,22 @@
+[package]
+name = "dougaka-app"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.95"
+[lib]
+name = "dougaka_app_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+[build-dependencies]
+tauri-build = { version = "=3.0.0-alpha.4", features = [] }
+[dependencies]
+tauri = { version = "=3.0.0-alpha.6", features = [] }
+tauri-runtime-wry = "=3.0.0-alpha.6"
+serde_json = "1"
+[features]
+custom-protocol = ["tauri/custom-protocol"]
+
+# Android APKs are debug builds: without debug info and with symbols stripped
+# the native library stays small (AGP's own strip step does not run here).
+[profile.dev]
+debug = 0
+strip = "symbols"

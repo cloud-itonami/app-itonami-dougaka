@@ -1,0 +1,1 @@
+{"identifier":"series-local","description":"Read-only host info. No external network, filesystem, installer or shell permissions.","windows":["main"],"permissions":["allow-awai-host-info"]}
