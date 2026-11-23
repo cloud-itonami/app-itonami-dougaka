@@ -34,7 +34,7 @@ test("dist carries the real Studio UI, not a blueprint viewer", async () => {
   for (const ref of refs) assert.ok(existsSync(join(appRoot, "dist", ref)), ref);
   // studio-host.js imports resolve inside dist.
   const host = await readFile(join(appRoot, "dist/studio-host.js"), "utf8");
-  for (const mod of ["./kotoba-client-runtime.js", "./studio-contract.js", "./studio-core.js", "./studio-local.js"]) {
+  for (const mod of ["./kotoba-client-runtime.js", "./studio-consent.js", "./studio-contract.js", "./studio-core.js", "./studio-local.js"]) {
     assert.ok(host.includes(mod), mod);
     assert.ok(existsSync(join(appRoot, "dist", mod.slice(2))), mod);
   }

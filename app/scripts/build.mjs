@@ -70,7 +70,7 @@ export async function build(appRoot = fileURLToPath(new URL("../", import.meta.u
     await copy(resolve(repo, `src/dougaka/${name}.cljk`), join(out, `dougaka/${name}.cljs`), `src/dougaka/${name}.cljk`);
   }
   await copy(resolve(repo, "site/app.cljk"), join(out, "app.cljs"), "site/app.cljk");
-  for (const name of ["studio-contract.js", "studio-core.js", "studio-local.js", "studio-host.js", "studio.css"]) {
+  for (const name of ["studio-contract.js", "studio-core.js", "studio-local.js", "studio-consent.js", "studio-host.js", "studio.css"]) {
     await copy(resolve(repo, "site", name), join(out, name), `site/${name}`);
   }
 
@@ -84,7 +84,7 @@ export async function build(appRoot = fileURLToPath(new URL("../", import.meta.u
   if (bad.length) throw new Error(`external or absolute reference: ${JSON.stringify(bad)}`);
   await writeFile(join(out, "index.html"), index);
 
-  const names = ["index.html", "dds.css", "studio.css", "kotoba-client-consent.css", "studio-host.js", "studio-contract.js", "studio-core.js", "studio-local.js", "kotoba-client-runtime.js", "kotoba/lang/text.cljs", "dougaka/core.cljs", "dougaka/ingest.cljs", "dougaka/export.cljs", "dougaka/view.cljs", "app.cljs", ...vendor.map((v) => `vendor/${v}`)];
+  const names = ["index.html", "dds.css", "studio.css", "kotoba-client-consent.css", "studio-host.js", "studio-consent.js", "studio-contract.js", "studio-core.js", "studio-local.js", "kotoba-client-runtime.js", "kotoba/lang/text.cljs", "dougaka/core.cljs", "dougaka/ingest.cljs", "dougaka/export.cljs", "dougaka/view.cljs", "app.cljs", ...vendor.map((v) => `vendor/${v}`)];
   const files = {};
   for (const name of names) {
     if (!existsSync(join(out, name))) throw new Error(`dist is missing ${name}`);

@@ -23,6 +23,7 @@
  :modules [{:from "site/studio-contract.js" :to "studio-contract.js"}
            {:from "site/studio-core.js" :to "studio-core.js"}
            {:from "site/studio-local.js" :to "studio-local.js"}
+           {:from "site/studio-consent.js" :to "studio-consent.js"}
            {:from "site/studio-host.js" :to "studio-host.js"}
            {:from "site/studio.css" :to "studio.css"}]
  :external [{:repo "kotoba-lang/text" :sha "bc551a3ecc68e551ba1dd2fcb22d5f1b8dd7805d"
