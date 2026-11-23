@@ -65,21 +65,29 @@ test("CSP is single-sourced and names only the declared generation origin", asyn
   const conf = JSON.parse(await readFile(join(appRoot, "src-tauri/tauri.conf.json"), "utf8"));
   assert.equal(conf.app.security.csp, CSP);
   const connect = CSP.split("connect-src")[1].split(";")[0].trim().split(/\s+/);
-  assert.deepEqual(connect.sort(), ["https://generation.murakumo.cloud", "https://local.itonami.cloud", "http://ipc.localhost", "ipc:", "'self'"].sort());
+  assert.deepEqual(connect.sort(), ["https://generation.murakumo.cloud", "http://ipc.localhost", "ipc:", "'self'"].sort());
+  assert.ok(!CSP.includes("local.itonami.cloud"), "inert local origin stays out of CSP");
   const index = await readFile(join(appRoot, "dist/index.html"), "utf8");
   assert.ok(index.includes(CSP));
 });
 
-test("studio-host CSP assertion matches the descriptor-derived connect-src", async () => {
+test("studio-host CSP assertion matches the descriptor network origins", async () => {
   // Regression: the pinned clientRuntimeConnectSrc includes the inert
-  // local origin, so the host must expect both origins (device acceptance
-  // found the old single-origin literal throwing on load).
+  // local origin, but only method-bearing operations are communication
+  // destinations, so the host must expect generation only and the CSP
+  // must not name the inert local origin (device acceptance found the
+  // old single-origin literal throwing on load).
   const runtime = await import(join(appRoot, "dist/kotoba-client-runtime.js"));
   const contract = await import(join(appRoot, "..", "site/studio-contract.js"));
   assert.equal(
     runtime.clientRuntimeConnectSrc(contract.runtimeDescriptor, contract.requestedCapabilities),
     `connect-src ${contract.generationOrigin} ${contract.localOrigin}`,
+    "pinned runtime derives both origins (including inert local)",
   );
+  const networkOrigins = [...new Set(contract.runtimeDescriptor.operations
+    .filter((op) => op.endpoint?.method)
+    .map((op) => op.endpoint.origin))];
+  assert.deepEqual(networkOrigins, [contract.generationOrigin], "only generation is a network destination");
   const host = await readFile(join(appRoot, "dist/studio-host.js"), "utf8");
-  assert.ok(host.includes("!== `connect-src ${generationOrigin} ${localOrigin}`"), "host asserts both origins");
+  assert.ok(host.includes("networkOrigins"), "host asserts network origins only");
 });

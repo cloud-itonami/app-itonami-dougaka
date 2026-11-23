@@ -1,8 +1,8 @@
 import {
-  clientRuntimeConnectSrc, clientRuntimeProblems, createClientConsentHost,
+  clientRuntimeProblems, createClientConsentHost,
   createClientOperationBroker,
 } from './kotoba-client-runtime.js';
-import { generationOrigin, hostSupportedOperations, localOrigin, localSelector, localService, requestedCapabilities,
+import { generationOrigin, hostSupportedOperations, localSelector, localService, requestedCapabilities,
   runtimeDescriptor, selector } from './studio-contract.js';
 import { artifactDigest, buildGenerationRequest, jobIdFrom, modelsFor, modes } from './studio-core.js';
 import { DOMAINS, createLocalStore } from './studio-local.js';
@@ -11,8 +11,15 @@ const root = document.getElementById('dougaka-studio');
 if (!root) throw new Error('Dougaka Studio mount is missing');
 const problems = clientRuntimeProblems(runtimeDescriptor, requestedCapabilities);
 if (problems.length) throw new Error(`Dougaka runtime declaration invalid: ${JSON.stringify(problems)}`);
-if (clientRuntimeConnectSrc(runtimeDescriptor, requestedCapabilities)
-    !== `connect-src ${generationOrigin} ${localOrigin}`) throw new Error('Dougaka CSP does not match declared services');
+// Only operations with a network method are real communication
+// destinations; browser-action (local) operations cause no fetch, so
+// their inert origin must not appear in the page CSP connect-src.
+const networkOrigins = [...new Set(runtimeDescriptor.operations
+  .filter((op) => op.endpoint?.method)
+  .map((op) => op.endpoint.origin))];
+if (networkOrigins.length !== 1 || networkOrigins[0] !== generationOrigin) {
+  throw new Error('Dougaka CSP does not match declared services');
+}
 
 // The static verified page owns the host policy. Passing the declaration as an
 // eligibility ceiling never grants consent: the canonical modal asks again for
