@@ -15,10 +15,11 @@ const operation = (name, method, path, categories) => ({
 
 // Browser-local Higgsfield management state. These operations cause no fetch:
 // the endpoint carries a browser-action and an inert origin that is never
-// requested (clientRuntimeConnectSrc skips browser-action operations, so the
-// page CSP is unchanged). The origin must still be a valid https origin that
-// differs from the app origin, so the consent screen names the local service
-// instead of implying a network call.
+// requested. The origin must still be a valid https origin that differs
+// from the app origin, so the consent screen names the local service
+// instead of implying a network call. It is deliberately NOT in the page
+// CSP connect-src (studio-host.js only treats method-bearing operations
+// as communication destinations).
 export const localOrigin = 'https://local.itonami.cloud';
 export const localCapability = 'media/project';
 export const localService = 'dougaka-local';

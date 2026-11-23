@@ -17,10 +17,12 @@ import { createHash } from "node:crypto";
 
 export const TAURI = "3.0.0-alpha.6";
 // Same policy as site/dougaka/page.cljk, plus the Tauri IPC bridge.
-// connect-src names exactly the declared generation origin (studio-host.js
-// asserts this against the client runtime descriptor); scittle needs
-// 'unsafe-eval'/'unsafe-inline', media previews need blob:.
-export const CSP = "default-src 'none'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data:; media-src blob:; connect-src ipc: http://ipc.localhost https://generation.murakumo.cloud; object-src 'none'; frame-src 'none'; base-uri 'none'; form-action 'none'";
+// connect-src names exactly the declared network origins (studio-host.js
+// asserts only method-bearing operations are destinations) plus 'self'
+// (scittle fetches its own sources same-origin) and the Tauri IPC bridge;
+// the inert browser-action local origin is deliberately not named.
+// Scittle needs 'unsafe-eval'/'unsafe-inline', media previews need blob:.
+export const CSP = "default-src 'none'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data:; media-src blob:; connect-src 'self' ipc: http://ipc.localhost https://generation.murakumo.cloud; object-src 'none'; frame-src 'none'; base-uri 'none'; form-action 'none'";
 
 const sha = (bytes) => createHash("sha256").update(bytes).digest("hex");
 
