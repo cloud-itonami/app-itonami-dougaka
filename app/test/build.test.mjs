@@ -43,6 +43,24 @@ test("dist carries the real Studio UI, not a blueprint viewer", async () => {
   assert.equal(release.tauri, "3.0.0-alpha.6");
 });
 
+test("THIRD-PARTY-LICENSES.md attributes every vendored file", async () => {
+  const bundle = await readFile(join(appRoot, "vendor/THIRD-PARTY-LICENSES.md"), "utf8");
+  const sections = [
+    ["vendor/kotoba-client-runtime.js", "Apache-2.0", "kotoba-lang/kotoba"],
+    ["vendor/kotoba-client-consent.css", "Apache-2.0", "kotoba-lang/kotoba"],
+    ["vendor/kotoba/lang/text.cljs", "Apache-2.0", "kotoba-lang/text"],
+    ["vendor/dds.css", "MIT", "digital-go-jp/design-system-example-components-html"],
+  ];
+  for (const [file, spdx, upstream] of sections) {
+    const heading = `## ${file}`;
+    const at = bundle.indexOf(heading);
+    assert.ok(at >= 0, `missing section ${heading}`);
+    const body = bundle.slice(at, bundle.indexOf("\n## ", at + 1) === -1 ? undefined : bundle.indexOf("\n## ", at + 1));
+    assert.ok(body.includes(spdx), `${file} section names ${spdx}`);
+    assert.ok(body.includes(upstream), `${file} section names ${upstream}`);
+  }
+});
+
 test("CSP is single-sourced and names only the declared generation origin", async () => {
   const conf = JSON.parse(await readFile(join(appRoot, "src-tauri/tauri.conf.json"), "utf8"));
   assert.equal(conf.app.security.csp, CSP);

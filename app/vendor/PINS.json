@@ -1,5 +1,6 @@
 {
   "license": "Apache-2.0",
+  "notice": "NOTICE",
   "files": {
     "kotoba-client-runtime.js": "7f760128c3a58098123c31ec3dd34b9c871932e3933f2c952facc4ab0e647212",
     "kotoba-client-consent.css": "eb1caab0619c5ca4428df637ae140bc3774582fa3f0b95a44bbd39b27b6b9086",
