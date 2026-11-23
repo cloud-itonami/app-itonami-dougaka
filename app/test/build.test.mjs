@@ -65,7 +65,21 @@ test("CSP is single-sourced and names only the declared generation origin", asyn
   const conf = JSON.parse(await readFile(join(appRoot, "src-tauri/tauri.conf.json"), "utf8"));
   assert.equal(conf.app.security.csp, CSP);
   const connect = CSP.split("connect-src")[1].split(";")[0].trim().split(/\s+/);
-  assert.deepEqual(connect.sort(), ["https://generation.murakumo.cloud", "http://ipc.localhost", "ipc:"].sort());
+  assert.deepEqual(connect.sort(), ["https://generation.murakumo.cloud", "https://local.itonami.cloud", "http://ipc.localhost", "ipc:", "'self'"].sort());
   const index = await readFile(join(appRoot, "dist/index.html"), "utf8");
   assert.ok(index.includes(CSP));
+});
+
+test("studio-host CSP assertion matches the descriptor-derived connect-src", async () => {
+  // Regression: the pinned clientRuntimeConnectSrc includes the inert
+  // local origin, so the host must expect both origins (device acceptance
+  // found the old single-origin literal throwing on load).
+  const runtime = await import(join(appRoot, "dist/kotoba-client-runtime.js"));
+  const contract = await import(join(appRoot, "..", "site/studio-contract.js"));
+  assert.equal(
+    runtime.clientRuntimeConnectSrc(contract.runtimeDescriptor, contract.requestedCapabilities),
+    `connect-src ${contract.generationOrigin} ${contract.localOrigin}`,
+  );
+  const host = await readFile(join(appRoot, "dist/studio-host.js"), "utf8");
+  assert.ok(host.includes("!== `connect-src ${generationOrigin} ${localOrigin}`"), "host asserts both origins");
 });

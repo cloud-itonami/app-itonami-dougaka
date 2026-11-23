@@ -64,7 +64,7 @@
                 [[:meta {:http-equiv "Content-Security-Policy"
                          :content (str "default-src 'none'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; "
                                        "style-src 'self' 'unsafe-inline'; img-src 'self' blob: data:; "
-                                       "media-src blob:; connect-src https://generation.murakumo.cloud; "
+                                       "media-src blob:; connect-src 'self' https://generation.murakumo.cloud https://local.itonami.cloud; "
                                        "base-uri 'none'; form-action 'none'")}]
                  [:link {:rel "stylesheet" :href "./studio.css"}]
                  [:link {:rel "stylesheet" :href "./kotoba-client-consent.css"}]
