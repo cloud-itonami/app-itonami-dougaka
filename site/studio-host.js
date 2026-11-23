@@ -2,7 +2,8 @@ import {
   clientRuntimeProblems, createClientConsentHost,
   createClientOperationBroker,
 } from './kotoba-client-runtime.js';
-import { generationOrigin, hostSupportedOperations, localSelector, localService, requestedCapabilities,
+import { installConsentDisplayFix } from './studio-consent.js';
+import { generationOrigin, hostSupportedOperations, localOrigin, localSelector, localService, requestedCapabilities,
   runtimeDescriptor, selector } from './studio-contract.js';
 import { artifactDigest, buildGenerationRequest, jobIdFrom, modelsFor, modes } from './studio-core.js';
 import { DOMAINS, createLocalStore } from './studio-local.js';
@@ -25,6 +26,13 @@ if (networkOrigins.length !== 1 || networkOrigins[0] !== generationOrigin) {
 // eligibility ceiling never grants consent: the canonical modal asks again for
 // every catalog, submission, status, cancellation and artifact request.
 const consentHost = createClientConsentHost();
+// The pinned broker's dialog prints the inert local origin for browser-action
+// operations and opens the modal synchronously inside the click dispatch;
+// studio-consent corrects both at the display layer (vendored runtime stays
+// byte-identical — see site/studio-consent.js).
+const consentDialog = document.querySelector('dialog.kotoba-client-consent');
+if (!consentDialog) throw new Error('Dougaka consent dialog is missing');
+installConsentDisplayFix({ dialog: consentDialog, localOrigin });
 // Browser-local Higgsfield management state: localStorage behind the same
 // per-operation consent broker. Handlers never fetch; the canonical broker
 // rejects any undeclared operation before consent is even asked.
