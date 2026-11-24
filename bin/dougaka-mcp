@@ -8,11 +8,15 @@
 ;;
 ;; ## 依存は repo の nbb.edn の pin から取る
 ;;
-;; kbb の既定 classpath は west の兄弟 checkout（`kotoba-lang/text/src`）を含み、
-;; `add-classpath` は末尾に足すだけなので、手元の checkout が作業中のブランチに
-;; あればそちらが勝つ。kbb は cwd の nbb.edn の :deps
-;; （kotoba-lang/text の固定 sha）を先に置くので、cwd がこの repo でなければ、
-;; repo を cwd にして自分を起動し直す。stdin / stdout はそのまま子に渡す。
+;; 起動時に同 repo の nbb.edn を絶対パスで知っている（app-directory から
+;; 求める）ので、cwd に依存しない。cwd がこの repo でなければ、repo を
+;; cwd にして自分のスクリプトを起動し直す（stdin / stdout はそのまま子に
+;; 渡す）。起動は sci ドア（`kbb --backend sci --config <repo>/nbb.edn
+;; <script>`）で行う: engine は `--config` の nbb.edn をアンカーにし、その
+;; :paths / :deps（kotoba-lang/kotoba の pin、gitlibs キャッシュから解決）を
+;; 構築する。`kbb <script>` の deps ドア（bin/kbb → kbb_deps.cljk）は script
+;; の上位の nbb.edn（kbb 自身の checkout のもの）を解決する経路で、cwd が
+;; repo でも解決しない（その推移依存に外部の dead dep がいる）。
 
 (ns dougaka-mcp
   (:require ["node:child_process" :as cp]
@@ -33,7 +37,9 @@
   (if (aget js/process.env reexec-env)
     (do (.write js/process.stderr "dougaka-mcp: cwd is not the repository after re-exec\n")
         (js/process.exit 70))
-    (let [r (cp/spawnSync "kbb" #js [(path/join app-directory "bin" "dougaka-mcp")]
+    (let [r (cp/spawnSync "kbb" #js ["--backend" "sci"
+                                     "--config" (path/join app-directory "nbb.edn")
+                                     (path/join app-directory "bin" "dougaka-mcp")]
                           #js {:cwd app-directory
                                :stdio "inherit"
                                :env (js/Object.assign #js {} js/process.env

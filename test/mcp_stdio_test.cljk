@@ -11,6 +11,8 @@
             [dougaka.ingest :as ingest]))
 
 (def server (fs/realpathSync "bin/dougaka-mcp"))
+(def repo-root (path/dirname (path/dirname server)))
+(def repo-nbb-edn (path/join repo-root "nbb.edn"))
 
 (defn- line [m] (str (.stringify js/JSON (clj->js m)) "\n"))
 
@@ -22,7 +24,7 @@
                                     "clientInfo" {"name" "itonami-agent" "version" "0.1"}}})
                    (line {"jsonrpc" "2.0" "method" "notifications/initialized" "params" {}})
                    (line {"jsonrpc" "2.0" "id" 2 "method" method "params" params}))
-        r (cp/spawnSync "kbb" #js [server]
+        r (cp/spawnSync "kbb" #js ["--backend" "sci" "--config" repo-nbb-edn server]
                         #js {:cwd cwd :input input :encoding "utf8" :timeout 30000
                              :env (js/Object.assign #js {} js/process.env)})]
     {:status (.-status r)
